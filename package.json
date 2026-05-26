@@ -1,0 +1,46 @@
+{
+  "name": "worklog",
+  "version": "1.0.0",
+  "description": "WorkLog — R&D Team Planning & Production Schedule Tracker",
+  "main": "main.js",
+  "author": "Alex · APm R&D",
+  "license": "MIT",
+  "scripts": {
+    "start": "electron .",
+    "dev": "electron . --dev",
+    "build:win": "electron-builder --win --x64"
+  },
+  "dependencies": {
+    "@supabase/supabase-js": "^2.45.0",
+    "ws": "^8.21.0"
+  },
+  "devDependencies": {
+    "electron": "^31.0.0",
+    "electron-builder": "^24.13.3"
+  },
+  "build": {
+    "appId": "com.apm.worklog",
+    "productName": "WorkLog",
+    "copyright": "Copyright © 2026 Alex · APm R&D",
+    "files": [
+      "main.js",
+      "preload.js",
+      "index.html",
+      "assets/**/*",
+      "node_modules/@supabase/**/*",
+      "node_modules/node-fetch/**/*",
+      "node_modules/ws/**/*"
+    ],
+    "win": {
+      "target": [
+        "nsis",
+        "portable"
+      ],
+      "icon": "assets/icon.ico"
+    },
+    "nsis": {
+      "oneClick": false,
+      "allowToChangeInstallationDirectory": true
+    }
+  }
+}
