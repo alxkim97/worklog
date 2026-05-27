@@ -18,7 +18,7 @@ body{font-family:'Segoe UI',system-ui,sans-serif;background:var(--bg);color:var(
   --accent:#6366f1;--accent-h:#818cf8;--accent-dim:#6366f130;
   --success:#10b981;--warning:#f59e0b;--danger:#ef4444;--info:#38bdf8;
   --c-pv:#a78bfa;--c-rd:#60a5fa;--c-doc:#fbbf24;--c-meet:#34d399;
-  --c-disp:#f59e0b;--c-tablets:#10b981;--c-cream:#06b6d4;--c-liquid:#3b82f6;--c-packing:#ec4899;
+  --c-dept-rd:#818cf8;--c-disp:#f59e0b;--c-tablets:#10b981;--c-cream:#06b6d4;--c-liquid:#3b82f6;--c-packing:#ec4899;
   --shadow:0 4px 24px #00000060;
 }
 :root[data-theme="light"]{
@@ -28,7 +28,7 @@ body{font-family:'Segoe UI',system-ui,sans-serif;background:var(--bg);color:var(
   --accent:#6366f1;--accent-h:#4f46e5;--accent-dim:#6366f120;
   --success:#059669;--warning:#d97706;--danger:#dc2626;--info:#0284c7;
   --c-pv:#7c3aed;--c-rd:#2563eb;--c-doc:#d97706;--c-meet:#059669;
-  --c-disp:#d97706;--c-tablets:#059669;--c-cream:#0891b2;--c-liquid:#2563eb;--c-packing:#be185d;
+  --c-dept-rd:#6366f1;--c-disp:#d97706;--c-tablets:#059669;--c-cream:#0891b2;--c-liquid:#2563eb;--c-packing:#be185d;
   --shadow:0 4px 24px #00000018;
 }
 
@@ -114,6 +114,7 @@ body{font-family:'Segoe UI',system-ui,sans-serif;background:var(--bg);color:var(
 .task-chip.rd_experiment{background:#60a5fa25;border-left:3px solid var(--c-rd);color:var(--c-rd)}
 .task-chip.document{background:#fbbf2425;border-left:3px solid var(--c-doc);color:var(--c-doc)}
 .task-chip.meeting  {background:#34d39925;border-left:3px solid var(--c-meet);color:var(--c-meet)}
+.task-chip.dept-rd     {background:color-mix(in srgb,var(--c-dept-rd) 14%,transparent);border-left:3px solid var(--c-dept-rd);color:var(--c-dept-rd)}
 .task-chip.dept-disp   {background:color-mix(in srgb,var(--c-disp) 14%,transparent);border-left:3px solid var(--c-disp);color:var(--c-disp)}
 .task-chip.dept-tablets{background:color-mix(in srgb,var(--c-tablets) 14%,transparent);border-left:3px solid var(--c-tablets);color:var(--c-tablets)}
 .task-chip.dept-cream  {background:color-mix(in srgb,var(--c-cream) 14%,transparent);border-left:3px solid var(--c-cream);color:var(--c-cream)}
@@ -141,6 +142,7 @@ body{font-family:'Segoe UI',system-ui,sans-serif;background:var(--bg);color:var(
 .week-task-card.rd_experiment{background:#60a5fa18;border-left:3px solid var(--c-rd)}
 .week-task-card.document   {background:#fbbf2418;border-left:3px solid var(--c-doc)}
 .week-task-card.meeting    {background:#34d39918;border-left:3px solid var(--c-meet)}
+.week-task-card.dept-rd     {background:color-mix(in srgb,var(--c-dept-rd) 10%,transparent);border-left:3px solid var(--c-dept-rd)}
 .week-task-card.dept-disp   {background:color-mix(in srgb,var(--c-disp) 10%,transparent);border-left:3px solid var(--c-disp)}
 .week-task-card.dept-tablets{background:color-mix(in srgb,var(--c-tablets) 10%,transparent);border-left:3px solid var(--c-tablets)}
 .week-task-card.dept-cream  {background:color-mix(in srgb,var(--c-cream) 10%,transparent);border-left:3px solid var(--c-cream)}
@@ -296,6 +298,19 @@ body{font-family:'Segoe UI',system-ui,sans-serif;background:var(--bg);color:var(
 /* NEW tag on chips */
 .new-tag{font-size:0.58rem;font-weight:700;background:color-mix(in srgb,var(--success) 25%,transparent);color:var(--success);border-radius:2px;padding:0 3px;margin-left:3px;flex-shrink:0;letter-spacing:.3px}
 
+/* Notes indicator */
+.notes-tag{font-size:0.68rem;opacity:.55;flex-shrink:0;margin-left:2px;line-height:1}
+
+/* Sheet task read-only mode */
+.modal.sheet-mode .type-grid,.modal.sheet-mode .priority-row,.modal.sheet-mode .status-row,
+.modal.sheet-mode #manual-dept-row,.modal.sheet-mode #pv-fields,.modal.sheet-mode #pv-name-field{display:none!important}
+.modal.sheet-mode .form-input:not(#t-notes),.modal.sheet-mode .form-textarea:not(#t-notes){opacity:.5;pointer-events:none}
+.sheet-banner{background:color-mix(in srgb,var(--accent) 12%,transparent);border:1px solid var(--accent-dim);border-radius:8px;padding:7px 12px;font-size:0.75rem;color:var(--text2);margin-bottom:16px;display:none}
+.modal.sheet-mode .sheet-banner{display:block}
+
+/* Multi-day chip continuation */
+.task-chip.continues{border-right:2px dashed currentColor}
+
 /* Color swatches */
 .color-swatch{width:36px;height:28px;padding:2px 3px;border:1px solid var(--border2);border-radius:6px;cursor:pointer;background:var(--surface3)}
 .color-picker-row{display:flex;align-items:center;gap:10px;padding:4px 0}
@@ -339,6 +354,7 @@ body{font-family:'Segoe UI',system-ui,sans-serif;background:var(--bg);color:var(
     <button class="topbar-btn" onclick="syncNow()" title="Sync Google Sheet (Ctrl+R)">&#8635; Sync</button>
     <span class="notif-badge hidden" id="notif-badge" onclick="clearNewBadge()" title="New tasks since last sync — click to dismiss">0</span>
   </div>
+  <button class="topbar-btn" onclick="exportCSV()" title="Export visible tasks to CSV">&#8595; CSV</button>
   <button class="topbar-btn primary" onclick="openTaskModal()" title="New task (N)">+ Task</button>
   <button class="topbar-btn" onclick="openSettings()">&#9881; Settings</button>
   <button class="topbar-btn" onclick="toggleTheme()" id="theme-btn" title="Toggle theme">&#127769;</button>
@@ -382,6 +398,7 @@ body{font-family:'Segoe UI',system-ui,sans-serif;background:var(--bg);color:var(
 
     <div class="sidebar-section">
       <div class="filter-title">Department</div>
+      <label class="filter-row"><input type="checkbox" id="fd-rd"      checked onchange="applyFilters()"><div class="dept-dot" style="background:var(--c-dept-rd)"></div>R&amp;D</label>
       <label class="filter-row"><input type="checkbox" id="fd-disp"    checked onchange="applyFilters()"><div class="dept-dot" style="background:var(--c-disp)"></div>Disp</label>
       <label class="filter-row"><input type="checkbox" id="fd-tablets" checked onchange="applyFilters()"><div class="dept-dot" style="background:var(--c-tablets)"></div>Tablets</label>
       <label class="filter-row"><input type="checkbox" id="fd-cream"   checked onchange="applyFilters()"><div class="dept-dot" style="background:var(--c-cream)"></div>Cream</label>
@@ -431,6 +448,7 @@ body{font-family:'Segoe UI',system-ui,sans-serif;background:var(--bg);color:var(
 <div class="modal">
   <button class="modal-close" onclick="closeTaskModal()">&#215;</button>
   <div class="modal-title" id="task-modal-title">&#43; New Task</div>
+  <div class="sheet-banner">&#128203; Production schedule task — only notes can be edited here.</div>
 
   <div class="form-row">
     <label class="form-label">Title *</label>
@@ -494,6 +512,18 @@ body{font-family:'Segoe UI',system-ui,sans-serif;background:var(--bg);color:var(
     <input class="form-input" id="t-prodname" placeholder="e.g. Ofacin 200 10x10's"/>
   </div>
 
+  <div class="form-row" id="manual-dept-row">
+    <label class="form-label">Department</label>
+    <select class="form-select" id="t-dept">
+      <option value="RD">R&amp;D (default)</option>
+      <option value="Disp">Disp</option>
+      <option value="TABLETS">Tablets</option>
+      <option value="CREAM">Cream</option>
+      <option value="LIQUID">Liquid</option>
+      <option value="PACKING">Packing</option>
+    </select>
+  </div>
+
   <div class="form-row">
     <label class="form-label">Assignee</label>
     <input class="form-input" id="t-assignee" placeholder="Name or email…"/>
@@ -507,7 +537,7 @@ body{font-family:'Segoe UI',system-ui,sans-serif;background:var(--bg);color:var(
   <div class="btn-row">
     <button class="btn btn-danger btn-sm" id="task-delete-btn" onclick="deleteCurrentTask()" style="display:none;margin-right:auto">Delete</button>
     <button class="btn btn-ghost" onclick="closeTaskModal()">Cancel</button>
-    <button class="btn btn-primary" onclick="saveTask()">Save Task</button>
+    <button class="btn btn-primary" id="task-save-btn" onclick="saveTask()">Save Task</button>
   </div>
 </div>
 </div>
@@ -603,6 +633,7 @@ body{font-family:'Segoe UI',system-ui,sans-serif;background:var(--bg);color:var(
       <div class="settings-row-label">Department Colors</div>
       <div class="form-hint" style="margin-bottom:10px">Customize colors to match your Google Sheet.</div>
       <div id="color-pickers">
+        <div class="color-picker-row"><input type="color" class="color-swatch" id="c-rd"/><span class="color-picker-label">R&amp;D</span></div>
         <div class="color-picker-row"><input type="color" class="color-swatch" id="c-disp"/><span class="color-picker-label">Disp</span></div>
         <div class="color-picker-row"><input type="color" class="color-swatch" id="c-tablets"/><span class="color-picker-label">Tablets</span></div>
         <div class="color-picker-row"><input type="color" class="color-swatch" id="c-cream"/><span class="color-picker-label">Cream</span></div>
@@ -787,6 +818,7 @@ function applyFilters() {
   const srcManual = document.getElementById('fsrc-manual').checked;
   const srcSheet  = document.getElementById('fsrc-sheet').checked;
   const depts = {
+    RD:      document.getElementById('fd-rd').checked,
     DISP:    document.getElementById('fd-disp').checked,
     TABLETS: document.getElementById('fd-tablets').checked,
     CREAM:   document.getElementById('fd-cream').checked,
@@ -797,7 +829,11 @@ function applyFilters() {
   filtered = allTasks.filter(t => {
     if (!statuses[t.status]) return false;
     if (t.source === 'manual') {
-      return srcManual && (types[t.type] !== false);
+      if (!srcManual) return false;
+      if (types[t.type] === false) return false;
+      const dept = (t.section || 'RD').trim().toUpperCase();
+      if (dept in depts && !depts[dept]) return false;
+      return true;
     }
     // Sheet tasks
     if (!srcSheet) return false;
@@ -830,21 +866,77 @@ function updateStats() {
 }
 
 // ── Dept / chip helpers ──────────────────────────────────────────────────────
+function deptClass(section) {
+  const d = (section || '').trim().toUpperCase();
+  if (d === 'RD')      return 'dept-rd';
+  if (d === 'DISP')    return 'dept-disp';
+  if (d === 'TABLETS') return 'dept-tablets';
+  if (d === 'CREAM')   return 'dept-cream';
+  if (d === 'LIQUID')  return 'dept-liquid';
+  if (d === 'PACKING') return 'dept-packing';
+  return null;
+}
+
 function chipClass(t) {
-  if (t.source === 'sheet' && t.section) {
-    const d = t.section.trim().toUpperCase();
-    if (d === 'DISP')    return 'dept-disp';
-    if (d === 'TABLETS') return 'dept-tablets';
-    if (d === 'CREAM')   return 'dept-cream';
-    if (d === 'LIQUID')  return 'dept-liquid';
-    if (d === 'PACKING') return 'dept-packing';
-    return 'dept-other';
-  }
-  return t.type;
+  const dc = deptClass(t.section);
+  if (dc) return dc;
+  if (t.source === 'manual') return 'dept-rd'; // manual tasks default to R&D
+  return 'dept-other';
 }
 
 function pvTag(t) {
   return /\bPV\d*/i.test(t.title || '') ? '<span class="pv-tag">PV</span>' : '';
+}
+
+function notesTag(t) {
+  return t.notes ? '<span class="notes-tag" title="Has notes">&#128203;</span>' : '';
+}
+
+const DEPT_ORDER = ['RD','DISP','TABLETS','CREAM','LIQUID','PACKING'];
+function deptRank(t) {
+  const d = (t.section || (t.source === 'manual' ? 'RD' : '')).trim().toUpperCase();
+  const i = DEPT_ORDER.indexOf(d);
+  return i === -1 ? DEPT_ORDER.length : i;
+}
+
+// Build date→tasks map with multi-day range support (local-date safe)
+function buildTasksByDate(tasks) {
+  const sorted = [...tasks].sort((a, b) => deptRank(a) - deptRank(b));
+  const map = {};
+  sorted.forEach(t => {
+    const end = t.due_date;
+    if (!end) return;
+    const start = t.start_date || end;
+    let cur = new Date(start + 'T00:00:00');
+    const endD = new Date(end + 'T00:00:00');
+    while (cur <= endD) {
+      const ds = `${cur.getFullYear()}-${pad(cur.getMonth()+1)}-${pad(cur.getDate())}`;
+      if (!map[ds]) map[ds] = [];
+      map[ds].push({ task: t, isEnd: ds === end, isStart: ds === start });
+      cur.setDate(cur.getDate() + 1);
+    }
+  });
+  return map;
+}
+
+function exportCSV() {
+  const headers = ['Title','Type','Status','Priority','Start Date','Due Date','Department','Lot Number','Product Name','Notes','Source'];
+  const rows = filtered.map(t => [
+    t.title, t.type, t.status, t.priority,
+    t.start_date || '', t.due_date || '',
+    t.section || '', t.lot_number || '',
+    t.product_name || '', t.notes || '', t.source
+  ]);
+  const csv = [headers, ...rows]
+    .map(r => r.map(c => `"${String(c).replace(/"/g,'""')}"`).join(',')).join('\r\n');
+  const blob = new Blob(['﻿' + csv], {type:'text/csv;charset=utf-8'});
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = `worklog-${todayStr()}.csv`;
+  a.click();
+  URL.revokeObjectURL(url);
+  toast(`Exported ${filtered.length} tasks`, 'success');
 }
 
 function newTag(t) {
@@ -882,12 +974,7 @@ function renderMonth() {
   for (let d = 1; d <= daysInM; d++) cells.push(d);
   while (cells.length % 7 !== 0) cells.push(null);
 
-  const tasksByDate = {};
-  filtered.forEach(t => {
-    if (!t.due_date) return;
-    if (!tasksByDate[t.due_date]) tasksByDate[t.due_date] = [];
-    tasksByDate[t.due_date].push(t);
-  });
+  const tasksByDate = buildTasksByDate(filtered);
 
   let html = '';
   for (let i = 0; i < cells.length; i += 7) {
@@ -899,23 +986,24 @@ function renderMonth() {
       const ds = `${year}-${pad(month+1)}-${pad(d)}`;
       const isToday = ds === today;
       const isPast  = ds < today;
-      const dayTasks = tasksByDate[ds] || [];
+      const dayEntries = tasksByDate[ds] || [];
 
       html += `<div class="cal-day${isToday?' cal-today':''}${isPast?' cal-past':''}" onclick="handleDayClick('${ds}')">`;
       html += `<div class="cal-day-num">${d}</div>`;
       html += '<div class="cal-day-tasks">';
 
       const max = 3;
-      dayTasks.slice(0, max).forEach(t => {
+      dayEntries.slice(0, max).forEach(({task:t, isEnd}) => {
         const over = isPast && t.status !== 'done';
-        html += `<div class="task-chip ${chipClass(t)}${over?' overdue':''}${t.status==='done'?' done':''}"
+        const cont = !isEnd ? ' continues' : '';
+        html += `<div class="task-chip ${chipClass(t)}${cont}${over?' overdue':''}${t.status==='done'?' done':''}"
           onclick="event.stopPropagation();openTaskModal('${t.id}')"
           title="${esc(t.title)}">
-          <span class="chip-title">${esc(t.title)}</span>${pvTag(t)}${newTag(t)}
+          <span class="chip-title">${esc(t.title)}</span>${pvTag(t)}${notesTag(t)}${newTag(t)}
         </div>`;
       });
-      if (dayTasks.length > max)
-        html += `<div class="chip-more" onclick="event.stopPropagation();openDayDetail('${ds}')">+${dayTasks.length - max} more</div>`;
+      if (dayEntries.length > max)
+        html += `<div class="chip-more" onclick="event.stopPropagation();openDayDetail('${ds}')">+${dayEntries.length - max} more</div>`;
 
       html += '</div></div>';
     }
@@ -930,12 +1018,7 @@ function renderWeek() {
   const today     = todayStr();
   const el = document.getElementById('week-view');
 
-  const tasksByDate = {};
-  filtered.forEach(t => {
-    if (!t.due_date) return;
-    if (!tasksByDate[t.due_date]) tasksByDate[t.due_date] = [];
-    tasksByDate[t.due_date].push(t);
-  });
+  const tasksByDate = buildTasksByDate(filtered);
 
   const DAYS = ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'];
   let html = '';
@@ -945,7 +1028,7 @@ function renderWeek() {
     d.setDate(d.getDate() + i);
     const ds  = d.toISOString().slice(0,10);
     const isToday = ds === today;
-    const dayTasks = tasksByDate[ds] || [];
+    const dayEntries = tasksByDate[ds] || [];
 
     html += `<div class="week-col">
       <div class="week-col-header${isToday?' today-col':''}">
@@ -954,14 +1037,14 @@ function renderWeek() {
       </div>
       <div class="week-col-tasks">`;
 
-    if (dayTasks.length === 0) {
+    if (dayEntries.length === 0) {
       html += `<div style="color:var(--text3);font-size:0.75rem;text-align:center;padding:12px 0">—</div>`;
     } else {
-      dayTasks.forEach(t => {
+      dayEntries.forEach(({task:t}) => {
         const sectionMeta = t.section ? `${esc(t.section)} · ` : '';
         html += `<div class="week-task-card ${chipClass(t)}${t.status==='done'?' done':''}"
           onclick="openTaskModal('${t.id}')">
-          <div class="week-task-title">${esc(t.title)}${pvTag(t)}${newTag(t)}</div>
+          <div class="week-task-title">${esc(t.title)}${pvTag(t)}${notesTag(t)}${newTag(t)}</div>
           <div class="week-task-meta">${sectionMeta}${priorityLabel(t.priority)}</div>
           ${t.assignee ? `<div class="week-task-meta">&#128100; ${esc(t.assignee)}</div>` : ''}
         </div>`;
@@ -1030,7 +1113,11 @@ function openDayDetail(dateStr) {
   document.getElementById('day-detail-title').textContent =
     d.toLocaleDateString('en-US', {weekday:'long', month:'long', day:'numeric', year:'numeric'});
 
-  const dayTasks = filtered.filter(t => t.due_date === dateStr);
+  const dayTasks = filtered.filter(t => {
+    if (!t.due_date) return false;
+    const start = t.start_date || t.due_date;
+    return dateStr >= start && dateStr <= t.due_date;
+  });
 
   if (dayTasks.length === 0) {
     document.getElementById('day-detail-content').innerHTML =
@@ -1038,9 +1125,10 @@ function openDayDetail(dateStr) {
   } else {
     // Group by section (or type for manual tasks)
     const groups = {};
-    const ORDER  = ['Disp','TABLETS','Cream','Liquid','Packing'];
+    const ORDER  = ['R&D','Disp','TABLETS','Cream','Liquid','Packing'];
+    dayTasks.sort((a, b) => deptRank(a) - deptRank(b));
     dayTasks.forEach(t => {
-      const grp = t.section || (t.source === 'manual' ? (typeLabel(t.type) || 'Manual') : 'Other');
+      const grp = t.section || (t.source === 'manual' ? 'R&D' : 'Other');
       if (!groups[grp]) groups[grp] = [];
       groups[grp].push(t);
     });
@@ -1060,7 +1148,7 @@ function openDayDetail(dateStr) {
           ? `<span class="day-task-status ${t.status}">${t.status === 'done' ? 'Done' : 'In Progress'}</span>` : '';
         html += `<div class="day-task-row task-chip ${chipClass(t)}${t.status==='done'?' done':''}"
           onclick="closeDayDetail();openTaskModal('${t.id}')">
-          <span class="chip-title">${esc(t.title)}${pvTag(t)}${newTag(t)}</span>${statusBadge}
+          <span class="chip-title">${esc(t.title)}${pvTag(t)}${notesTag(t)}${newTag(t)}</span>${statusBadge}
         </div>`;
       });
       html += '</div>';
@@ -1085,19 +1173,26 @@ function newTaskForDay() {
 // ── Task Modal ────────────────────────────────────────────────────────────────
 function openTaskModal(id = null, prefillDate = null) {
   editingId = id;
-  const overlay = document.getElementById('task-modal-overlay');
-  const title   = document.getElementById('task-modal-title');
-  const delBtn  = document.getElementById('task-delete-btn');
+  const overlay  = document.getElementById('task-modal-overlay');
+  const modal    = overlay.querySelector('.modal');
+  const title    = document.getElementById('task-modal-title');
+  const delBtn   = document.getElementById('task-delete-btn');
+  const saveBtn  = document.getElementById('task-save-btn');
 
   if (id) {
     const task = allTasks.find(t => t.id === id);
     if (!task) return;
-    title.textContent = '✏ Edit Task';
-    delBtn.style.display = '';
+    const isSheet = task.source === 'sheet';
+    modal.classList.toggle('sheet-mode', isSheet);
+    title.textContent = isSheet ? '📋 Sheet Task' : '✏ Edit Task';
+    delBtn.style.display  = isSheet ? 'none' : '';
+    saveBtn.textContent   = isSheet ? 'Save Notes' : 'Save Task';
     populateTaskForm(task);
   } else {
+    modal.classList.remove('sheet-mode');
     title.textContent = '+ New Task';
     delBtn.style.display = 'none';
+    saveBtn.textContent  = 'Save Task';
     resetTaskForm();
     if (prefillDate) document.getElementById('t-due').value = prefillDate;
   }
@@ -1120,6 +1215,7 @@ function resetTaskForm() {
   document.getElementById('t-prodname').value = '';
   document.getElementById('t-assignee').value = '';
   document.getElementById('t-notes').value    = '';
+  document.getElementById('t-dept').value     = 'RD';
   selectType('meeting');
   selectPriority('normal');
   selectStatus('pending');
@@ -1134,6 +1230,7 @@ function populateTaskForm(t) {
   document.getElementById('t-prodname').value = t.product_name || '';
   document.getElementById('t-assignee').value = t.assignee || '';
   document.getElementById('t-notes').value    = t.notes || '';
+  document.getElementById('t-dept').value     = t.section || 'RD';
   selectType(t.type || 'meeting');
   selectPriority(t.priority || 'normal');
   selectStatus(t.status || 'pending');
@@ -1168,6 +1265,21 @@ function selectStatus(s) {
 }
 
 async function saveTask() {
+  // Sheet tasks: notes only
+  if (editingId) {
+    const task = allTasks.find(t => t.id === editingId);
+    if (task && task.source === 'sheet') {
+      const notes = document.getElementById('t-notes').value.trim() || null;
+      try {
+        await wl.tasksUpdate(editingId, { notes });
+        toast('Notes saved', 'success');
+        closeTaskModal();
+        await refreshTasks();
+      } catch(e) { toast(e.message, 'error'); }
+      return;
+    }
+  }
+
   const title = document.getElementById('t-title').value.trim();
   const due   = document.getElementById('t-due').value;
   if (!title) { toast('Title is required', 'error'); return; }
@@ -1183,6 +1295,7 @@ async function saveTask() {
     lot_number:   document.getElementById('t-lot').value.trim() || null,
     product_code: document.getElementById('t-prodcode').value.trim() || null,
     product_name: document.getElementById('t-prodname').value.trim() || null,
+    section:      document.getElementById('t-dept').value || 'RD',
     assignee:     document.getElementById('t-assignee').value.trim() || null,
     notes:        document.getElementById('t-notes').value.trim() || null,
     source:       'manual'
@@ -1394,15 +1507,17 @@ function toggleSidebar() {
 function applyColors(colors) {
   if (!colors) return;
   const r = document.documentElement;
-  if (colors.disp)    r.style.setProperty('--c-disp',    colors.disp);
-  if (colors.tablets) r.style.setProperty('--c-tablets', colors.tablets);
-  if (colors.cream)   r.style.setProperty('--c-cream',   colors.cream);
-  if (colors.liquid)  r.style.setProperty('--c-liquid',  colors.liquid);
-  if (colors.packing) r.style.setProperty('--c-packing', colors.packing);
+  if (colors.rd)      r.style.setProperty('--c-dept-rd',  colors.rd);
+  if (colors.disp)    r.style.setProperty('--c-disp',     colors.disp);
+  if (colors.tablets) r.style.setProperty('--c-tablets',  colors.tablets);
+  if (colors.cream)   r.style.setProperty('--c-cream',    colors.cream);
+  if (colors.liquid)  r.style.setProperty('--c-liquid',   colors.liquid);
+  if (colors.packing) r.style.setProperty('--c-packing',  colors.packing);
 }
 
 function populateColorPickers(colors) {
-  const d = { disp:'#f59e0b', tablets:'#10b981', cream:'#06b6d4', liquid:'#3b82f6', packing:'#ec4899' };
+  const d = { rd:'#818cf8', disp:'#f59e0b', tablets:'#10b981', cream:'#06b6d4', liquid:'#3b82f6', packing:'#ec4899' };
+  document.getElementById('c-rd').value      = (colors && colors.rd)      || d.rd;
   document.getElementById('c-disp').value    = (colors && colors.disp)    || d.disp;
   document.getElementById('c-tablets').value = (colors && colors.tablets) || d.tablets;
   document.getElementById('c-cream').value   = (colors && colors.cream)   || d.cream;
@@ -1412,6 +1527,7 @@ function populateColorPickers(colors) {
 
 async function saveColors() {
   const colors = {
+    rd:      document.getElementById('c-rd').value,
     disp:    document.getElementById('c-disp').value,
     tablets: document.getElementById('c-tablets').value,
     cream:   document.getElementById('c-cream').value,
@@ -1425,7 +1541,7 @@ async function saveColors() {
 }
 
 async function resetColors() {
-  const defaults = { disp:'#f59e0b', tablets:'#10b981', cream:'#06b6d4', liquid:'#3b82f6', packing:'#ec4899' };
+  const defaults = { rd:'#818cf8', disp:'#f59e0b', tablets:'#10b981', cream:'#06b6d4', liquid:'#3b82f6', packing:'#ec4899' };
   await wl.saveColors(defaults);
   appConfig.colors = defaults;
   applyColors(defaults);

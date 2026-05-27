@@ -50,7 +50,7 @@ const DEFAULT_CFG = {
   sync: { intervalHours: 4, lastSync: null },
   theme: 'dark',
   view: 'month',
-  colors: { disp: '#f59e0b', tablets: '#10b981', cream: '#06b6d4', liquid: '#3b82f6', packing: '#ec4899' }
+  colors: { rd: '#818cf8', disp: '#f59e0b', tablets: '#10b981', cream: '#06b6d4', liquid: '#3b82f6', packing: '#ec4899' }
 };
 
 let config = JSON.parse(JSON.stringify(DEFAULT_CFG));
