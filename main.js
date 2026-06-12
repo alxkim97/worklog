@@ -50,7 +50,8 @@ const DEFAULT_CFG = {
   sync: { intervalHours: 4, lastSync: null },
   theme: 'dark',
   view: 'month',
-  colors: { rd: '#818cf8', disp: '#f59e0b', tablets: '#10b981', cream: '#06b6d4', liquid: '#3b82f6', packing: '#ec4899' }
+  colors: { rd: '#818cf8', disp: '#f59e0b', tablets: '#10b981', cream: '#06b6d4', liquid: '#3b82f6', packing: '#ec4899' },
+  userName: ''
 };
 
 let config = JSON.parse(JSON.stringify(DEFAULT_CFG));
@@ -217,7 +218,7 @@ async function fetchSheetRows() {
   const planTitle = sheetTitles.find(t => t.trim().toUpperCase() === 'PLAN') || sheetTitles[0];
   if (!planTitle) throw new Error('No sheets found in spreadsheet');
 
-  const range = encodeURIComponent(`${planTitle}!A1:Z2000`);
+  const range = encodeURIComponent(`${planTitle}!A1:AZ2000`);
   const res = await fetch(
     `https://sheets.googleapis.com/v4/spreadsheets/${sid}/values/${range}?majorDimension=ROWS`,
     { headers: { Authorization: `Bearer ${token}` } }
@@ -238,7 +239,8 @@ function parseSheetTasks(rows) {
     jan:1,feb:2,mar:3,apr:4,may:5,jun:6,
     jul:7,aug:8,sep:9,oct:10,nov:11,dec:12
   };
-  const SKIP_CELLS = new Set(['B','RD','Semi','Clean','รวม','Total','']);
+  const SKIP_CELLS  = new Set(['B','RD','Semi','Clean','รวม','Total','']);
+  const STEP_LABELS = new Set(['Mix','Tab','Capsule','Coat','Bottle','Strip','Blister','Powder']);
 
   const tasks = [];
   const seen  = new Set();
@@ -262,8 +264,9 @@ function parseSheetTasks(rows) {
 
     if (!curMonth) continue;
 
-    // Day header row: ≥3 cells that are integers 1–31, all unique
-    // (batch/mix rows repeat the same number like "1,1,1,1" and must not match)
+    // Day header row: ≥5 cells that are integers 1–31, all unique, and span consecutive days.
+    // Threshold is 5 (not 3) so Packing batch-count rows (2–3 numbers) don't accidentally
+    // reset dayColumns and shift all subsequent date mappings.
     const candidates = [];
     for (let c = 0; c < row.length; c++) {
       const v = (row[c] || '').trim();
@@ -271,7 +274,7 @@ function parseSheetTasks(rows) {
       if (n >= 1 && n <= 31 && String(n) === v) candidates.push({ col: c, day: n });
     }
     const uniqueDays = new Set(candidates.map(c => c.day));
-    if (candidates.length >= 3 && uniqueDays.size >= 3) { dayColumns = candidates; continue; }
+    if (candidates.length >= 5 && uniqueDays.size >= 5) { dayColumns = candidates; continue; }
     if (!dayColumns.length) continue;
 
     // Track section / subsection labels
@@ -282,42 +285,57 @@ function parseSheetTasks(rows) {
 
     for (const { col, day } of dayColumns) {
       // Disp row: product sits at dayCol itself; other rows: product at dayCol+1
-      const cell = ((isDisp ? row[col] : row[col + 1]) || '').trim();
-      if (!cell || SKIP_CELLS.has(cell) || /^\d+$/.test(cell)) continue;
+      const rawCell = ((isDisp ? row[col] : row[col + 1]) || '').trim();
+      if (!rawCell || SKIP_CELLS.has(rawCell) || /^\d+$/.test(rawCell)) continue;
 
-      // Month rollover: small day numbers within a week that also has large days = next month
+      // Month rollover: boundary weeks span two months
+      // minDay ≤ 3 → this week STARTS a new month (large days belong to curMonth-1)
+      // minDay > 3 → this week ENDS a month (small days belong to curMonth+1)
       const maxDay = Math.max(...dayColumns.map(d => d.day));
+      const minDay = Math.min(...dayColumns.map(d => d.day));
       let m = curMonth, y = curYear;
-      if (day < 10 && maxDay > 20) {
-        m = curMonth === 12 ? 1 : curMonth + 1;
-        y = curMonth === 12 ? curYear + 1 : curYear;
+      if (maxDay > 20 && minDay < 10) {
+        if (minDay <= 3) {
+          if (day > 20) { m = curMonth===1?12:curMonth-1; y = curMonth===1?curYear-1:curYear; }
+        } else {
+          if (day < 10) { m = curMonth===12?1:curMonth+1; y = curMonth===12?curYear+1:curYear; }
+        }
       }
 
-      const dateStr  = `${y}-${String(m).padStart(2,'0')}-${String(day).padStart(2,'0')}`;
-      const sheetRef = `${dateStr}::${cell.slice(0, 40)}`;
-      if (seen.has(sheetRef)) continue;
-      seen.add(sheetRef);
+      const dateStr = `${y}-${String(m).padStart(2,'0')}-${String(day).padStart(2,'0')}`;
 
-      const lotMatch = cell.match(/\((\d{2,3})\)/);
-      const section  = [curSection, isDisp ? 'Disp' : curSub].filter(Boolean).join(' › ');
-      const isPv     = /\bPV\d*/i.test(cell);
-      const dept     = isDisp ? 'Disp' : (curSection.trim() || null);
+      // PD staff sometimes write two drugs in the same cell (Alt+Enter in Sheets → \n).
+      // Split each line into its own task so RD users see them separately.
+      const cellLines = rawCell.split('\n').map(l => l.trim()).filter(l => l && !SKIP_CELLS.has(l) && !/^\d+$/.test(l));
 
-      tasks.push({
-        title:        cell,
-        type:         isPv ? 'pv_lot' : 'production',
-        status:       'pending',
-        priority:     'normal',
-        due_date:     dateStr,
-        product_name: cell,
-        product_code: null,
-        lot_number:   lotMatch ? lotMatch[1] : null,
-        notes:        section || null,
-        section:      dept,
-        assignee:     null,
-        source:       'sheet',
-        sheet_ref:    sheetRef
-      });
+      for (const cell of cellLines) {
+        const sheetRef = `${dateStr}::${cell.slice(0, 40)}`;
+        if (seen.has(sheetRef)) continue;
+        seen.add(sheetRef);
+
+        const lotMatch = cell.match(/\((\d{2,3})\)/);
+        const section  = [curSection, isDisp ? 'Disp' : curSub].filter(Boolean).join(' › ');
+        const isPv     = /\bPV\d*/i.test(cell);
+        const dept     = isDisp ? 'Disp' : (curSection.trim() || null);
+        const step     = (!isDisp && STEP_LABELS.has(curSub)) ? curSub : null;
+        const title    = step ? `[${step}] ${cell}` : cell;
+
+        tasks.push({
+          title:        title,
+          type:         isPv ? 'pv_lot' : 'production',
+          status:       'pending',
+          priority:     'normal',
+          due_date:     dateStr,
+          product_name: cell,
+          product_code: null,
+          lot_number:   lotMatch ? lotMatch[1] : null,
+          notes:        section || null,
+          section:      dept,
+          assignee:     null,
+          source:       'sheet',
+          sheet_ref:    sheetRef
+        });
+      }
     }
   }
   return tasks;
@@ -369,11 +387,101 @@ function startSyncTimer() {
 // ── Electron window ───────────────────────────────────────────────────────────
 let mainWindow;
 
+function createDefaultIcon() {
+  // Generates a 32x32 ICO — bullseye/target design (outer ring + inner dot in accent purple)
+  const size = 32;
+  const dir = path.join(__dirname, 'assets');
+  const iconPath = path.join(dir, 'icon.ico');
+  if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
+  // Delete and regenerate so design changes take effect on update
+  if (fs.existsSync(iconPath)) fs.unlinkSync(iconPath);
+
+  // Build 32x32 BGRA pixel data
+  const px = Buffer.alloc(size * size * 4);
+  const cx = 15.5, cy = 15.5;
+  // Rings: outer filled r≤14, gap r≤10, white ring r≤8.5, gap r≤5, purple dot r≤3.5
+  const PURPLE = [0xF1, 0x66, 0x63, 0xFF]; // #6366F1 BGRA
+  const WHITE  = [0xFF, 0xFF, 0xFF, 0xFF];
+  const RED    = [0x30, 0x30, 0xE8, 0xFF]; // #E83030 — center bullseye accent
+  const TRANS  = [0x00, 0x00, 0x00, 0x00];
+
+  for (let y = 0; y < size; y++) {
+    for (let x = 0; x < size; x++) {
+      const i = (y * size + x) * 4;
+      const d = Math.sqrt((x - cx) ** 2 + (y - cy) ** 2);
+      let col;
+      if      (d <= 3.5)  col = RED;    // center dot
+      else if (d <= 5.0)  col = WHITE;  // gap
+      else if (d <= 8.5)  col = PURPLE; // inner ring
+      else if (d <= 10.0) col = WHITE;  // gap
+      else if (d <= 13.5) col = PURPLE; // outer ring
+      else                col = TRANS;  // transparent outside
+      px[i]=col[0]; px[i+1]=col[1]; px[i+2]=col[2]; px[i+3]=col[3];
+    }
+  }
+
+  // ICO header (1 image), ICONDIRENTRY, BITMAPINFOHEADER, pixel data
+  const dibH  = size * 2; // ICO BMP height is doubled (XOR + AND mask)
+  const rowBytes = size * 4;
+  const andRowBytes = Math.ceil(size / 32) * 4; // 1-bit AND mask rows (DWORD-aligned)
+  const bmpSize = 40 + rowBytes * size + andRowBytes * size;
+
+  const buf = Buffer.alloc(6 + 16 + bmpSize);
+  let o = 0;
+
+  // ICONDIR
+  buf.writeUInt16LE(0, o); o += 2;       // reserved
+  buf.writeUInt16LE(1, o); o += 2;       // type=1 (icon)
+  buf.writeUInt16LE(1, o); o += 2;       // count=1
+
+  // ICONDIRENTRY
+  buf.writeUInt8(size, o); o++;          // width
+  buf.writeUInt8(size, o); o++;          // height
+  buf.writeUInt8(0, o); o++;             // color count (0 = >256)
+  buf.writeUInt8(0, o); o++;             // reserved
+  buf.writeUInt16LE(1, o); o += 2;       // planes
+  buf.writeUInt16LE(32, o); o += 2;      // bit count
+  buf.writeUInt32LE(bmpSize, o); o += 4; // size of image data
+  buf.writeUInt32LE(22, o); o += 4;      // offset to image data (6+16)
+
+  // BITMAPINFOHEADER
+  buf.writeUInt32LE(40, o); o += 4;      // header size
+  buf.writeInt32LE(size, o); o += 4;     // width
+  buf.writeInt32LE(dibH, o); o += 4;     // height (doubled)
+  buf.writeUInt16LE(1, o); o += 2;       // planes
+  buf.writeUInt16LE(32, o); o += 2;      // bit count
+  buf.writeUInt32LE(0, o); o += 4;       // compression (none)
+  buf.writeUInt32LE(rowBytes * size, o); o += 4; // image size
+  buf.writeInt32LE(0, o); o += 4;        // x ppm
+  buf.writeInt32LE(0, o); o += 4;        // y ppm
+  buf.writeUInt32LE(0, o); o += 4;       // colors used
+  buf.writeUInt32LE(0, o); o += 4;       // colors important
+
+  // XOR mask (pixel rows bottom-to-top)
+  for (let y = size - 1; y >= 0; y--) {
+    for (let x = 0; x < size; x++) {
+      const si = (y * size + x) * 4;
+      buf[o++] = px[si];   // B
+      buf[o++] = px[si+1]; // G
+      buf[o++] = px[si+2]; // R
+      buf[o++] = px[si+3]; // A
+    }
+  }
+
+  // AND mask (all zeros = fully opaque via alpha channel)
+  buf.fill(0, o);
+
+  fs.writeFileSync(iconPath, buf);
+  return iconPath;
+}
+
 function createWindow() {
+  const iconPath = createDefaultIcon();
   mainWindow = new BrowserWindow({
     width: 1440, height: 900,
     minWidth: 1024, minHeight: 680,
     backgroundColor: '#0f172a',
+    icon: iconPath,
     webPreferences: {
       preload: path.join(__dirname, 'preload.js'),
       nodeIntegration: false,
@@ -410,6 +518,7 @@ app.whenReady().then(async () => {
     theme:              config.theme,
     view:               config.view,
     colors:             config.colors,
+    userName:           config.userName || '',
     supabaseConfigured: !!(config.supabase.url && config.supabase.anonKey),
     googleConfigured:   !!config.google.refreshToken,
     lastSync:           config.sync.lastSync,
@@ -458,6 +567,27 @@ app.whenReady().then(async () => {
   ipcMain.handle('save-colors', (_, colors) => {
     config.colors = { ...config.colors, ...colors };
     saveConfig();
+  });
+
+  ipcMain.handle('save-user-name', (_, name) => { config.userName = name; saveConfig(); return true; });
+
+  // ── Date Notes ───────────────────────────────────────────────────────────────
+  ipcMain.handle('notes-get-all', async () => {
+    if (!supabase) return [];
+    const { data, error } = await supabase.from('work_date_notes').select('*').order('created_at');
+    return error ? [] : data;
+  });
+  ipcMain.handle('notes-save', async (_, note) => {
+    if (!supabase) throw new Error('Supabase not connected');
+    const { data, error } = await supabase.from('work_date_notes').insert(note).select().single();
+    if (error) throw error;
+    return data;
+  });
+  ipcMain.handle('notes-delete', async (_, id) => {
+    if (!supabase) throw new Error('Supabase not connected');
+    const { error } = await supabase.from('work_date_notes').delete().eq('id', id);
+    if (error) throw error;
+    return true;
     return true;
   });
 

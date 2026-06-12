@@ -28,5 +28,13 @@ contextBridge.exposeInMainWorld('wl', {
   tasksCreate:   (task)           => ipcRenderer.invoke('tasks-create', task),
   tasksUpdate:   (id, updates)    => ipcRenderer.invoke('tasks-update', { id, updates }),
   tasksDelete:   (id)             => ipcRenderer.invoke('tasks-delete', id),
-  tasksBulkDelete: (ids)          => ipcRenderer.invoke('tasks-bulk-delete', ids)
+  tasksBulkDelete: (ids)          => ipcRenderer.invoke('tasks-bulk-delete', ids),
+
+  // User
+  saveUserName: (name) => ipcRenderer.invoke('save-user-name', name),
+
+  // Date Notes
+  notesGetAll:  ()     => ipcRenderer.invoke('notes-get-all'),
+  notesSave:    (note) => ipcRenderer.invoke('notes-save', note),
+  notesDelete:  (id)   => ipcRenderer.invoke('notes-delete', id)
 });
