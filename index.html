@@ -241,7 +241,8 @@ body{font-family:'Segoe UI',system-ui,sans-serif;background:var(--bg);color:var(
 .chip-more{font-size:0.68rem;color:var(--text3);padding:1px 0}
 
 /* Week view — Mon-Fri normal, Sat-Sun compressed (last two cols) */
-#week-view{display:grid;grid-template-columns:1fr 1fr 1fr 1fr 1fr 0.58fr 0.58fr;gap:8px;flex:1}
+#week-view{display:flex;flex-direction:column;flex:1;overflow:hidden}
+#week-cols-grid{display:grid;grid-template-columns:1fr 1fr 1fr 1fr 1fr 0.58fr 0.58fr;gap:8px;flex:1;overflow-y:auto}
 .week-col{display:flex;flex-direction:column;gap:6px}
 .week-col-header{text-align:center;padding:8px 4px 6px;border-radius:8px;color:var(--text2)}
 .week-col-header.today-col{background:var(--accent-dim);color:var(--accent)}
@@ -629,6 +630,45 @@ body{font-family:'Segoe UI',system-ui,sans-serif;background:var(--bg);color:var(
 .stats-row{display:flex;gap:16px;flex-wrap:wrap;margin-bottom:16px}
 .stats-panel{background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:16px;flex:1;min-width:240px}
 
+/* ── Mode toggle (RD / PD) ────────────────────────────────────────────────── */
+.mode-toggle{display:flex;gap:2px;background:var(--surface3);padding:3px;border-radius:8px;flex-shrink:0}
+.mode-btn{background:none;border:none;color:var(--text2);padding:4px 13px;border-radius:6px;cursor:pointer;font-size:0.82rem;font-weight:600;transition:all .15s;letter-spacing:.3px}
+.mode-btn.active{background:var(--surface);color:var(--text);box-shadow:0 1px 4px #0002}
+.mode-btn.active.rd{color:var(--c-dept-rd)}
+.mode-btn.active.pd{color:var(--c-tablets)}
+
+/* ── Trial feature styles ──────────────────────────────────────────────────── */
+.trial-tag{font-size:0.5rem;font-weight:800;background:var(--warning);color:#000;border-radius:3px;padding:0 3px 0 2px;letter-spacing:.4px;cursor:help;vertical-align:middle;opacity:.85;flex-shrink:0}
+/* Load bar */
+.day-load-bar{height:3px;border-radius:1px;margin-top:2px;flex-shrink:0;opacity:.85}
+.day-load-bar[data-n="1"],.day-load-bar[data-n="2"]{background:var(--success)}
+.day-load-bar[data-n="3"],.day-load-bar[data-n="4"]{background:var(--warning)}
+.day-load-bar[data-n="5"]{background:var(--danger)}
+/* Week Gantt strip */
+#gantt-strip{flex-shrink:0;padding:4px 0 6px;border-bottom:1px solid var(--border)}
+#gantt-cols{display:grid;grid-template-columns:1fr 1fr 1fr 1fr 1fr 0.58fr 0.58fr;gap:8px;position:relative;padding:0 0 2px}
+.gantt-hdr{font-size:0.58rem;font-weight:700;text-transform:uppercase;letter-spacing:.5px;color:var(--text3);display:flex;align-items:center;gap:4px;padding:0 0 4px 2px}
+.gantt-row{display:contents}
+.gantt-span{grid-row:1;border-radius:3px;padding:1px 4px;font-size:0.58rem;font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;color:#fff;margin:1px 0;min-height:14px;cursor:pointer;transition:.1s}
+.gantt-span:hover{filter:brightness(1.12)}
+.gantt-empty{font-size:0.65rem;color:var(--text3);text-align:center;padding:4px 0;opacity:.5}
+/* PV Checklist modal */
+.pv-check-progress{height:6px;background:var(--surface3);border-radius:3px;margin:6px 0 10px;overflow:hidden}
+.pv-check-progress-fill{height:100%;background:var(--success);border-radius:3px;transition:.3s}
+.pv-check-row{display:flex;align-items:center;gap:8px;padding:5px 0;border-bottom:1px solid var(--border)}
+.pv-check-row:last-child{border-bottom:none}
+.pv-check-icon{font-size:1rem;width:20px;text-align:center;flex-shrink:0}
+.pv-check-label{flex:1;font-size:0.8rem;color:var(--text2)}
+.pv-check-date{font-size:0.68rem;color:var(--text3);flex-shrink:0}
+.pv-check-badge{font-size:0.6rem;font-weight:700;padding:1px 6px;border-radius:8px;flex-shrink:0}
+/* Assignee workload */
+.assignee-row{display:flex;align-items:center;gap:6px;padding:3px 0;cursor:pointer;border-radius:4px;transition:.1s}
+.assignee-row:hover{background:var(--border)}
+.assignee-name{font-size:0.7rem;color:var(--text2);flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.assignee-bar-wrap{width:48px;height:4px;background:var(--surface3);border-radius:2px;flex-shrink:0}
+.assignee-bar{height:100%;background:var(--accent);border-radius:2px;transition:.3s}
+.assignee-count{font-size:0.62rem;color:var(--text3);width:16px;text-align:right;flex-shrink:0}
+
 /* ── Mini-calendar (sidebar) ──────────────────────────────────────────────── */
 .mini-cal{padding:10px 12px 8px;border-bottom:1px solid var(--border);flex-shrink:0}
 .mini-cal-hdr{display:flex;align-items:center;justify-content:space-between;margin-bottom:5px}
@@ -668,6 +708,11 @@ body{font-family:'Segoe UI',system-ui,sans-serif;background:var(--bg);color:var(
     <button class="view-tab" id="tab-month" onclick="setView('month')">Month</button>
     <button class="view-tab" id="tab-week"  onclick="setView('week')">Week</button>
     <button class="view-tab" id="tab-stats" onclick="setView('stats')">Stats</button>
+  </div>
+  <div class="topbar-sep"></div>
+  <div class="mode-toggle" title="Switch between R&amp;D team view and Production Department view">
+    <button class="mode-btn rd" id="mode-rd" onclick="setTeamMode('rd')">RD</button>
+    <button class="mode-btn pd" id="mode-pd" onclick="setTeamMode('pd')">PD</button>
   </div>
   <div class="topbar-spacer"></div>
 
@@ -823,6 +868,20 @@ body{font-family:'Segoe UI',system-ui,sans-serif;background:var(--bg);color:var(
         <div id="pv-tracker-list" style="padding-top:8px"><div style="font-size:0.75rem;color:var(--text3)">—</div></div>
       </div>
 
+      <div class="sidebar-sep" style="margin-top:12px"></div>
+
+      <!-- Assignee Workload (Trial) -->
+      <div onclick="toggleSbSection('assignee')" class="sb-section-hdr">
+        <div class="sidebar-label" style="margin-bottom:0;display:flex;align-items:center;gap:4px">
+          Who's Busy
+          <span class="trial-tag" title="TRIAL FEATURE: Assignee Workload — shows how many active tasks each person has. Click a name to filter the calendar to that person.">🧪</span>
+        </div>
+        <span class="sb-toggle" id="sbt-assignee">▼</span>
+      </div>
+      <div class="sb-section-body" id="sbb-assignee">
+        <div id="assignee-list" style="padding-top:6px"><div style="font-size:0.75rem;color:var(--text3)">—</div></div>
+      </div>
+
     </div><!-- end .sb-scroll -->
 
     <!-- Footer always visible at bottom -->
@@ -886,6 +945,17 @@ body{font-family:'Segoe UI',system-ui,sans-serif;background:var(--bg);color:var(
 
 <!-- ── Toast Container ──────────────────────────────────────────────────── -->
 <div id="toast-container"></div>
+
+<!-- ── PV Checklist Modal (Trial) ───────────────────────────────────────── -->
+<div class="modal-overlay hidden" id="pv-checklist-overlay" onclick="if(event.target===this)closePVChecklist()">
+<div class="modal" style="max-width:420px">
+  <button class="modal-close" onclick="closePVChecklist()">&#215;</button>
+  <div class="modal-title" id="pv-check-title">PV Lot Steps</div>
+  <div style="font-size:0.68rem;color:var(--text3);margin-bottom:4px" id="pv-check-dates"></div>
+  <div class="pv-check-progress"><div class="pv-check-progress-fill" id="pv-check-bar" style="width:0%"></div></div>
+  <div id="pv-check-steps"></div>
+</div>
+</div>
 
 <!-- ── Task Modal ───────────────────────────────────────────────────────── -->
 <div class="modal-overlay hidden" id="task-modal-overlay" onclick="if(event.target===this)closeTaskModal()">
@@ -1195,6 +1265,7 @@ let selectedPriority = 'normal';
 let selectedStatus   = 'pending';
 let newTaskIds = new Set();
 let rdFirst = false;
+let teamMode = localStorage.getItem('wl-team-mode') || 'rd'; // 'rd' or 'pd'
 
 // UI-only preferences (localStorage, not in config.json)
 const uiPrefs = JSON.parse(localStorage.getItem('wl-ui-prefs') || '{}');
@@ -1278,6 +1349,7 @@ async function init() {
   document.getElementById('stats-view').style.display = view === 'stats' ? 'flex' : 'none';
   updateViewTabs();
   updatePeriodLabel();
+  applyTeamModeUI();
   renderCalendar();
   renderMiniCal();
 
@@ -1344,6 +1416,7 @@ async function refreshTasks() {
     applyFilters();
     updateStats();
     renderPVTracker();
+    renderAssigneeSection();
   } catch(e) {
     console.error('applyFilters/render error:', e);
     toast('Render error: ' + e.message, 'error');
@@ -1388,6 +1461,10 @@ function applyFilters() {
   };
 
   filtered = allTasks.filter(t => {
+    // Team mode: RD = manual + pv tasks, PD = sheet production tasks only
+    if (teamMode === 'pd' && t.source === 'manual') return false;
+    if (teamMode === 'rd' && t.source === 'sheet' && t.type !== 'pv_lot') return false;
+
     if (!statuses[effectiveStatus(t)]) return false;
     if (t.source === 'manual') {
       if (!srcManual) return false;
@@ -1420,6 +1497,7 @@ function applyFilters() {
 
   renderCalendar();
   updateStats();
+  renderAssigneeSection();
 }
 
 function updateStats() {
@@ -1613,6 +1691,12 @@ function renderMonth() {
       if (dayEntries.length > max)
         html += `<div class="chip-more" onclick="event.stopPropagation();openDayDetail('${ds}')">+${dayEntries.length - max} more</div>`;
 
+      // Trial: Daily Load Bar — colour shows how busy this day is
+      if (dayEntries.length > 0) {
+        const n = Math.min(dayEntries.length, 5);
+        html += `<div class="day-load-bar" data-n="${n}" title="🧪 Trial: Load Bar — ${dayEntries.length} task(s) today. Green = light, amber = moderate, red = heavy."></div>`;
+      }
+
       html += '</div></div>';
     }
     html += '</div>';
@@ -1628,8 +1712,43 @@ function renderWeek() {
 
   const tasksByDate = buildTasksByDate(filtered);
 
+  // ── Trial: Week Gantt strip ──────────────────────────────────────────────
+  // Shows multi-day tasks as coloured horizontal bars spanning their week columns
+  const weekDates = [];
+  for (let i = 0; i < 7; i++) {
+    const d = new Date(weekStart); d.setDate(d.getDate() + i);
+    weekDates.push(localDateStr(d));
+  }
+  const multiDayTasks = filtered.filter(t => {
+    if (!t.start_date || !t.due_date || t.start_date === t.due_date) return false;
+    return weekDates.some(ds => ds >= t.start_date && ds <= t.due_date);
+  });
+
+  let ganttHtml = `<div id="gantt-strip">
+    <div class="gantt-hdr"><span>📊</span><span>Gantt</span><span class="trial-tag" title="🧪 TRIAL FEATURE: Week Gantt — multi-day tasks shown as coloured bars across the week. Each bar spans the task's start→end date. Click a bar to open the task. Single-day tasks appear only in the day column below.">TRIAL</span></div>`;
+
+  if (multiDayTasks.length === 0) {
+    ganttHtml += `<div class="gantt-empty">No multi-day tasks this week</div>`;
+  } else {
+    ganttHtml += `<div id="gantt-cols" style="display:grid;grid-template-columns:1fr 1fr 1fr 1fr 1fr 0.58fr 0.58fr;gap:8px">`;
+    multiDayTasks.forEach(t => {
+      const colStart = weekDates.findIndex(ds => ds >= t.start_date);
+      const colEnd   = weekDates.reduce((last, ds, i) => ds <= t.due_date ? i : last, -1);
+      if (colStart === -1 || colEnd === -1) return;
+      const span = colEnd - colStart + 1;
+      const color = getComputedStyle(document.documentElement).getPropertyValue(`--c-${t.type==='pv_lot'?'pv':t.type==='rd_experiment'?'rd':t.type==='document'?'doc':'meet'}`).trim() || 'var(--accent)';
+      ganttHtml += `<div class="gantt-span"
+        style="grid-column:${colStart+1}/span ${span};background:${color||'var(--accent)'};opacity:${effectiveStatus(t)==='done'?.5:1}"
+        onclick="openTaskModal('${t.id}')"
+        title="${esc(t.title)} (${dispDate(t.start_date)} → ${dispDate(t.due_date)})"
+        >${esc(t.title)}</div>`;
+    });
+    ganttHtml += `</div>`;
+  }
+  ganttHtml += `</div>`;
+
   const DAYS = ['Mon','Tue','Wed','Thu','Fri','Sat','Sun'];
-  let html = '';
+  let colsHtml = '<div id="week-cols-grid">';
 
   for (let i = 0; i < 7; i++) {
     const d   = new Date(weekStart);
@@ -1638,7 +1757,7 @@ function renderWeek() {
     const isToday = ds === today;
     const dayEntries = tasksByDate[ds] || [];
 
-    html += `<div class="week-col">
+    colsHtml += `<div class="week-col">
       <div class="week-col-header${isToday?' today-col':''}">
         <div style="font-size:0.62rem;letter-spacing:.5px;text-transform:uppercase">${DAYS[i]}</div>
         <div class="week-col-date${isToday?' week-col-date-today':''}">${d.getDate()}</div>
@@ -1646,14 +1765,14 @@ function renderWeek() {
       <div class="week-col-tasks">`;
 
     if (dayEntries.length === 0) {
-      html += `<div style="color:var(--text3);font-size:0.75rem;text-align:center;padding:12px 0">—</div>`;
+      colsHtml += `<div style="color:var(--text3);font-size:0.75rem;text-align:center;padding:12px 0">—</div>`;
     } else {
       dayEntries.forEach(({task:t}) => {
         const sectionMeta = t.section ? `${esc(t.section)}` : '';
         const prioMeta    = (t.source === 'manual' && t.priority !== 'normal') ? priorityLabel(t.priority) : '';
         const meta        = [sectionMeta, prioMeta].filter(Boolean).join(' · ');
         const isRd        = t.source === 'manual' || t.type === 'pv_lot';
-        html += `<div class="week-task-card ${chipClass(t)}${effectiveStatus(t)==='done'?' done':''}${isRd?' rd-task':''}"
+        colsHtml += `<div class="week-task-card ${chipClass(t)}${effectiveStatus(t)==='done'?' done':''}${isRd?' rd-task':''}"
           data-task-id="${t.id}"
           onclick="openTaskModal('${t.id}')"
           oncontextmenu="showContextMenu(event,'${t.id}')">
@@ -1664,10 +1783,11 @@ function renderWeek() {
       });
     }
 
-    html += '</div></div>';
+    colsHtml += '</div></div>';
   }
+  colsHtml += '</div>';
 
-  el.innerHTML = html;
+  el.innerHTML = ganttHtml + colsHtml;
 }
 
 // ── Period navigation ─────────────────────────────────────────────────────────
@@ -2530,6 +2650,9 @@ function renderPVTracker() {
           ${dateRange ? `<div style="font-size:0.6rem;color:${dateColor};margin-top:1px">${dateRange}</div>` : ''}
         </div>
         <span class="pv-lot-status ${es}">${statusLbl[es]||es}</span>
+        <button onclick="event.stopPropagation();openPVChecklist('${t.id}')"
+          style="background:none;border:none;cursor:pointer;font-size:0.75rem;padding:2px 4px;border-radius:4px;color:var(--text3);line-height:1;transition:.1s"
+          title="🧪 TRIAL: PV Checklist — view all manufacturing steps for this lot in one place, with completion status and dates. Helps track overall lot progress.">📋</button>
       </div>
       ${stepsHtml ? `<div class="pv-steps">${stepsHtml}</div>` : ''}
     </div>`;
@@ -2572,6 +2695,105 @@ function jumpToPVLot(taskId, dateStr) {
       }
     }
   }, 80);
+}
+
+// ── Team Mode (RD / PD) ───────────────────────────────────────────────────────
+function setTeamMode(mode) {
+  teamMode = mode;
+  localStorage.setItem('wl-team-mode', mode);
+  document.getElementById('mode-rd').classList.toggle('active', mode === 'rd');
+  document.getElementById('mode-pd').classList.toggle('active', mode === 'pd');
+  applyFilters();
+}
+
+function applyTeamModeUI() {
+  document.getElementById('mode-rd').classList.toggle('active', teamMode === 'rd');
+  document.getElementById('mode-pd').classList.toggle('active', teamMode === 'pd');
+}
+
+// ── PV Checklist (Trial) ───────────────────────────────────────────────────────
+function openPVChecklist(lotId) {
+  const t = allTasks.find(x => x.id === lotId);
+  if (!t) return;
+  document.getElementById('pv-check-title').textContent = t.title;
+  const start = t.start_date || t.due_date || '';
+  const end   = t.due_date || '';
+  document.getElementById('pv-check-dates').textContent =
+    start && end && start !== end ? `${dispDate(start)} → ${dispDate(end)}` : (end ? dispDate(end) : '');
+
+  const base = t.title.replace(/^\[[^\]]*\]\s*/,'').trim().toLowerCase();
+  const matchKey = base.slice(0, 26);
+  const steps = allTasks
+    .filter(s => {
+      if (!getStepPrefix(s.title)) return false;
+      const rest = s.title.replace(/^\[[^\]]*\]\s*/,'').trim().toLowerCase();
+      return rest.startsWith(matchKey);
+    })
+    .sort((a,b) => (a.start_date||a.due_date||'').localeCompare(b.start_date||b.due_date||''));
+
+  const DEPT_COLOR = {RD:'var(--c-dept-rd)',DISP:'var(--c-disp)',TABLETS:'var(--c-tablets)',CREAM:'var(--c-cream)',LIQUID:'var(--c-liquid)',PACKING:'var(--c-packing)'};
+  const doneCount = steps.filter(s => effectiveStatus(s) === 'done').length;
+  const pct = steps.length ? Math.round(doneCount / steps.length * 100) : 0;
+  document.getElementById('pv-check-bar').style.width = pct + '%';
+
+  const statusLabel = {pending:'Pending',in_progress:'In Progress',done:'Done',deferred:'Deferred'};
+  const statusBg    = {pending:'var(--surface3)',in_progress:'#38bdf820',done:'#10b98120',deferred:'#f59e0b20'};
+  const statusClr   = {pending:'var(--text3)',in_progress:'var(--info)',done:'var(--success)',deferred:'var(--warning)'};
+
+  let html = `<div style="font-size:0.7rem;color:var(--text3);margin-bottom:6px">${pct}% complete (${doneCount}/${steps.length} steps done)</div>`;
+  if (steps.length === 0) {
+    html += '<div style="color:var(--text3);font-size:0.8rem;padding:8px 0">No step tasks found for this lot.</div>';
+  } else {
+    steps.forEach(s => {
+      const ses  = effectiveStatus(s);
+      const pfx  = getStepPrefix(s.title) || '?';
+      const dept = (s.section || 'RD').trim().toUpperCase();
+      const dc   = DEPT_COLOR[dept] || 'var(--text3)';
+      const icon = ses==='done' ? '✅' : ses==='in_progress' ? '▶️' : ses==='deferred' ? '⏸️' : '⏳';
+      const sd = s.start_date || s.due_date || ''; const ed = s.due_date || '';
+      let dl = '';
+      if (sd && ed && sd !== ed) dl = `${dispDate(sd)} → ${dispDate(ed)}`;
+      else if (sd) dl = dispDate(sd);
+      html += `<div class="pv-check-row" onclick="closePVChecklist();jumpToPVLot('${s.id}','${ed||sd}')" style="cursor:pointer">
+        <span class="pv-check-icon">${icon}</span>
+        <span class="pv-check-label" style="color:${dc};font-weight:600">[${esc(pfx)}]</span>
+        <span class="pv-check-date">${dl}</span>
+        <span class="pv-check-badge" style="background:${statusBg[ses]};color:${statusClr[ses]}">${statusLabel[ses]||ses}</span>
+      </div>`;
+    });
+  }
+  document.getElementById('pv-check-steps').innerHTML = html;
+  document.getElementById('pv-checklist-overlay').classList.remove('hidden');
+}
+
+function closePVChecklist() {
+  document.getElementById('pv-checklist-overlay').classList.add('hidden');
+}
+
+// ── Assignee Workload (Trial) ──────────────────────────────────────────────────
+function renderAssigneeSection() {
+  const el = document.getElementById('assignee-list');
+  if (!el) return;
+  const counts = {};
+  filtered.forEach(t => {
+    if (!t.assignee) return;
+    const key = t.assignee.trim();
+    if (!key) return;
+    if (effectiveStatus(t) === 'done') return; // only active tasks
+    counts[key] = (counts[key] || 0) + 1;
+  });
+  const entries = Object.entries(counts).sort((a,b) => b[1]-a[1]).slice(0, 8);
+  if (entries.length === 0) {
+    el.innerHTML = '<div style="font-size:0.72rem;color:var(--text3);padding-top:4px">No assignees on active tasks</div>';
+    return;
+  }
+  const max = entries[0][1];
+  el.innerHTML = entries.map(([name, n]) => `
+    <div class="assignee-row" onclick="onSearchInput('${esc(name)}');document.getElementById('search-input').value='${esc(name)}'" title="Filter calendar to ${esc(name)}'s tasks">
+      <span class="assignee-name">${esc(name)}</span>
+      <div class="assignee-bar-wrap"><div class="assignee-bar" style="width:${Math.round(n/max*100)}%"></div></div>
+      <span class="assignee-count">${n}</span>
+    </div>`).join('');
 }
 
 // ── Mini-calendar ─────────────────────────────────────────────────────────────
@@ -2636,7 +2858,7 @@ function miniCalGoto(ds) {
 
 // ── Sidebar sections ──────────────────────────────────────────────────────────
 const sbOpen = {};
-const SB_SECTIONS = ['type','status','dept','source','pv'];
+const SB_SECTIONS = ['type','status','dept','source','pv','assignee'];
 
 function toggleSbSection(key) {
   sbOpen[key] = !sbOpen[key];
@@ -2989,6 +3211,7 @@ document.addEventListener('keydown', (e) => {
     document.getElementById('shortcuts-overlay').classList.add('hidden');
     document.getElementById('day-detail-overlay').classList.add('hidden');
     document.getElementById('stat-detail-overlay').classList.add('hidden');
+    document.getElementById('pv-checklist-overlay').classList.add('hidden');
     return;
   }
 
