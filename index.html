@@ -1497,6 +1497,7 @@ function applyFilters() {
 
   renderCalendar();
   updateStats();
+  renderPVTracker();
   renderAssigneeSection();
 }
 
@@ -1731,12 +1732,16 @@ function renderWeek() {
     ganttHtml += `<div class="gantt-empty">No multi-day tasks this week</div>`;
   } else {
     ganttHtml += `<div id="gantt-cols" style="display:grid;grid-template-columns:1fr 1fr 1fr 1fr 1fr 0.58fr 0.58fr;gap:8px">`;
+    const DEPT_VAR = {RD:'--c-dept-rd',DISP:'--c-disp',TABLETS:'--c-tablets',CREAM:'--c-cream',LIQUID:'--c-liquid',PACKING:'--c-packing'};
     multiDayTasks.forEach(t => {
       const colStart = weekDates.findIndex(ds => ds >= t.start_date);
       const colEnd   = weekDates.reduce((last, ds, i) => ds <= t.due_date ? i : last, -1);
       if (colStart === -1 || colEnd === -1) return;
       const span = colEnd - colStart + 1;
-      const color = getComputedStyle(document.documentElement).getPropertyValue(`--c-${t.type==='pv_lot'?'pv':t.type==='rd_experiment'?'rd':t.type==='document'?'doc':'meet'}`).trim() || 'var(--accent)';
+      // Mirrors chipClass(): pv_lot/rd_experiment use type colour, everything else uses department colour
+      const cssVar = t.type === 'pv_lot' ? '--c-pv' : t.type === 'rd_experiment' ? '--c-rd'
+        : (DEPT_VAR[(t.section || '').trim().toUpperCase()] || (t.source === 'manual' ? '--c-dept-rd' : '--text3'));
+      const color = getComputedStyle(document.documentElement).getPropertyValue(cssVar).trim() || 'var(--accent)';
       ganttHtml += `<div class="gantt-span"
         style="grid-column:${colStart+1}/span ${span};background:${color||'var(--accent)'};opacity:${effectiveStatus(t)==='done'?.5:1}"
         onclick="openTaskModal('${t.id}')"
@@ -2574,7 +2579,7 @@ function exportWeekSummary() {
 
 // ── PV Tracker ────────────────────────────────────────────────────────────────
 function renderPVTracker() {
-  const pvTasks = allTasks
+  const pvTasks = filtered
     .filter(t => t.type === 'pv_lot' || (t.source==='manual' && /\bpv\b/i.test(t.title||'')))
     .sort((a, b) => {
       const ea = effectiveStatus(a), eb = effectiveStatus(b);
@@ -2598,7 +2603,7 @@ function renderPVTracker() {
     if (base.length < 8) return [];
     // Use up to 26 chars — enough to include lot number e.g. "(32)" at position ~20
     const matchKey = base.slice(0, 26);
-    return allTasks
+    return filtered
       .filter(t => {
         if (!getStepPrefix(t.title)) return false;
         const rest = t.title.replace(/^\[[^\]]*\]\s*/,'').trim().toLowerCase();
@@ -2713,7 +2718,7 @@ function applyTeamModeUI() {
 
 // ── PV Checklist (Trial) ───────────────────────────────────────────────────────
 function openPVChecklist(lotId) {
-  const t = allTasks.find(x => x.id === lotId);
+  const t = filtered.find(x => x.id === lotId);
   if (!t) return;
   document.getElementById('pv-check-title').textContent = t.title;
   const start = t.start_date || t.due_date || '';
@@ -2723,7 +2728,7 @@ function openPVChecklist(lotId) {
 
   const base = t.title.replace(/^\[[^\]]*\]\s*/,'').trim().toLowerCase();
   const matchKey = base.slice(0, 26);
-  const steps = allTasks
+  const steps = filtered
     .filter(s => {
       if (!getStepPrefix(s.title)) return false;
       const rest = s.title.replace(/^\[[^\]]*\]\s*/,'').trim().toLowerCase();
@@ -2789,11 +2794,18 @@ function renderAssigneeSection() {
   }
   const max = entries[0][1];
   el.innerHTML = entries.map(([name, n]) => `
-    <div class="assignee-row" onclick="onSearchInput('${esc(name)}');document.getElementById('search-input').value='${esc(name)}'" title="Filter calendar to ${esc(name)}'s tasks">
+    <div class="assignee-row" data-name="${esc(name)}" title="Filter calendar to ${esc(name)}'s tasks">
       <span class="assignee-name">${esc(name)}</span>
       <div class="assignee-bar-wrap"><div class="assignee-bar" style="width:${Math.round(n/max*100)}%"></div></div>
       <span class="assignee-count">${n}</span>
     </div>`).join('');
+  el.querySelectorAll('.assignee-row').forEach(row => {
+    row.addEventListener('click', () => {
+      const name = row.dataset.name;
+      onSearchInput(name);
+      document.getElementById('search-input').value = name;
+    });
+  });
 }
 
 // ── Mini-calendar ─────────────────────────────────────────────────────────────

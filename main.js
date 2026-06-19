@@ -588,7 +588,6 @@ app.whenReady().then(async () => {
     const { error } = await supabase.from('work_date_notes').delete().eq('id', id);
     if (error) throw error;
     return true;
-    return true;
   });
 
   // Tasks CRUD
