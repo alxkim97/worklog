@@ -1,8 +1,10 @@
 # WorkLog — Session Handoff
 
-**Last updated:** 2026-05-27
-**Current version:** v1.3.0
+**Last updated:** 2026-06-22
+**Current version:** v1.5.1
 **Branch:** main
+
+> Note: this file lagged behind actual app state for a while (was last updated for v1.3.0 while package.json/git history had moved to v1.5.0 with the PD/RD toggle and trial features). Check `package.json`/`git log` for ground truth if this file looks stale again.
 
 ---
 
@@ -65,7 +67,22 @@ work_tasks (
 
 ---
 
-## What was done this session (2026-05-27)
+## What was done this session (2026-06-22)
+
+### v1.5.1 — Full audit + bug fixes
+
+Did a full code/security/functional audit of the app (it had drifted ahead of this doc — PD/RD toggle and 4 trial features had already shipped). Fixed:
+
+- **XSS in Who's Busy widget** — assignee name was interpolated unescaped into an inline `onclick` JS string; a name containing `'` could break out and inject script. Replaced with `data-name` attribute + `addEventListener`.
+- **PV Lots sidebar/checklist ignored PD/RD mode and filters** — `renderPVTracker()`/`getStepTasksFor()`/`openPVChecklist()` read from `allTasks` instead of `filtered`, and `applyFilters()` never even called `renderPVTracker()`. Now sourced from `filtered` and re-rendered on every filter/mode change.
+- **Week Gantt strip wrong colour** — defaulted everything except pv_lot/rd_experiment to meeting-green instead of department colour. Now mirrors `chipClass()` logic.
+- **Dead code** — duplicate `return true;` in `notes-delete` IPC handler.
+- **Schema drift** — `supabase-setup.sql` was missing the `section` column, `production` type, and the whole `work_date_notes` table (only existed as an in-app SQL snippet in Settings → DB Schema). Fresh installs now get the full schema from this one file.
+- **OAuth "No auth code received" false failures** — the loopback callback server treated ANY request (including the browser's automatic `/favicon.ico` fetch) as the OAuth redirect, closing the server before the real `?code=...` redirect could land. Now only requests carrying `code` or `error` are treated as the callback.
+- **Supabase sync failing with "Invalid path specified in request URL"** — the saved Supabase URL had `/rest/v1/` already appended (likely copied from the wrong field in the Supabase dashboard); `supabase-js` appends that itself, so every request doubled the path. Added `normalizeSupabaseUrl()` in main.js, applied on load and on save, so this self-heals existing bad config and can't recur.
+- Also had to manually fix a broken local Electron install (`node_modules/electron`'s `extract-zip`-based installer silently stalled mid-extraction on this machine) — not a code change, just a local environment fix.
+
+### What was done this session (2026-05-27)
 
 ### v1.2.0 — Visual & UX features
 - 🎯 logo + title tag

@@ -83,7 +83,14 @@ function deepMerge(base, override) {
 // ── Supabase ──────────────────────────────────────────────────────────────────
 let supabase = null;
 
+// supabase-js wants the bare project URL and appends /rest/v1 itself — strip it
+// if a user pastes the REST endpoint URL (as shown on some Supabase API pages).
+function normalizeSupabaseUrl(url) {
+  return (url || '').trim().replace(/\/rest\/v1\/?$/i, '').replace(/\/+$/, '');
+}
+
 function initSupabase() {
+  config.supabase.url = normalizeSupabaseUrl(config.supabase.url);
   if (!config.supabase.url || !config.supabase.anonKey) return false;
   try {
     const { createClient } = require('@supabase/supabase-js');
@@ -114,6 +121,13 @@ async function startOAuthFlow() {
         const reqUrl = new URL(req.url, `http://localhost:${port}`);
         const code  = reqUrl.searchParams.get('code');
         const error = reqUrl.searchParams.get('error');
+
+        // Ignore stray requests (e.g. browser auto-fetching /favicon.ico) that aren't
+        // the actual OAuth redirect — only a request carrying code or error counts.
+        if (!code && !error) {
+          res.writeHead(404); res.end();
+          return;
+        }
 
         const ok   = `<html><body style="font-family:system-ui;padding:2rem;background:#0f172a;color:#e2e8f0"><h2 style="color:#6366f1">✓ WorkLog: Authorized!</h2><p>You can close this tab and return to WorkLog.</p></body></html>`;
         const fail = `<html><body style="font-family:system-ui;padding:2rem;background:#0f172a;color:#e2e8f0"><h2 style="color:#ef4444">✗ Authorization failed</h2><p>${error || 'Unknown error'}</p></body></html>`;
@@ -527,7 +541,7 @@ app.whenReady().then(async () => {
   }));
 
   ipcMain.handle('save-supabase', (_, { url, anonKey }) => {
-    config.supabase.url     = url.trim();
+    config.supabase.url     = normalizeSupabaseUrl(url);
     config.supabase.anonKey = anonKey.trim();
     saveConfig();
     return initSupabase();
