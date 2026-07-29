@@ -403,8 +403,10 @@ let mainWindow;
 
 function createDefaultIcon() {
   // Generates a 32x32 ICO — bullseye/target design (outer ring + inner dot in accent purple)
+  // Written to DATA_DIR (not __dirname/assets) because __dirname lives inside app.asar
+  // once packaged, and asar contents are read-only at runtime.
   const size = 32;
-  const dir = path.join(__dirname, 'assets');
+  const dir = DATA_DIR;
   const iconPath = path.join(dir, 'icon.ico');
   if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
   // Delete and regenerate so design changes take effect on update
