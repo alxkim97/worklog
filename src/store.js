@@ -53,6 +53,8 @@ export const isSheet = t => t.source === 'sheet'
 export const isProduction = t => isSheet(t) && t.type !== 'pv_lot'
 // "Mine" = anything with a status worth tracking: your own tasks + PV lots.
 export const isTracked = t => !isProduction(t)
+// Runs on the sheet's 'RD' machine line — production, but R&D's business.
+export const isRdLine = t => isSheet(t) && (t.sheet_path || '').includes('R&D line')
 export const isOpen = t => t.status === 'pending' || t.status === 'in_progress'
 export const startOf = t => t.start_date && t.due_date && t.start_date < t.due_date ? t.start_date : t.due_date
 export const onDay = (t, d) => !!t.due_date && startOf(t) <= d && d <= t.due_date
@@ -60,7 +62,7 @@ export const isOverdue = t => isTracked(t) && isOpen(t) && !!t.due_date && t.due
 
 export function visible(t) {
   if (state.prefs.hiddenDepts.includes(t.section || 'other')) return false
-  if (isProduction(t)) return state.prefs.production === 'all'
+  if (isProduction(t)) return state.prefs.production === 'all' || (state.prefs.production === 'pv' && isRdLine(t))
   if (isSheet(t)) return state.prefs.production !== 'off'
   return true
 }
@@ -117,8 +119,10 @@ export function pvLots() {
   const lots = new Map()
   for (const t of state.tasks) {
     if (t.type !== 'pv_lot' || !isSheet(t)) continue
-    const key = `${t.product_name || t.title}`
-    if (!lots.has(key)) lots.set(key, { key, name: t.product_name || t.title, lot: t.lot_number, steps: [] })
+    // Steps can carry a Thai prefix (e.g. 'prepare coating solution …') — group on the product itself.
+    const name = (t.product_name || t.title).replace(/^[^A-Za-z0-9]+/, '')
+    const key = `${name}|${t.lot_number || ''}`
+    if (!lots.has(key)) lots.set(key, { key, name, lot: t.lot_number, steps: [] })
     lots.get(key).steps.push(t)
   }
   const out = [...lots.values()].map(l => {

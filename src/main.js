@@ -125,7 +125,7 @@ const periodNav = () => ['week', 'month'].includes(state.view) ? `
 
 const layerToggle = () => ['week', 'month'].includes(state.view) ? `
   <div class="seg small" title="Production layer">
-    ${[['all', 'All'], ['pv', 'PV'], ['off', 'Mine']].map(([v, l]) => `<button type="button" class="${state.prefs.production === v ? 'on' : ''}" data-act="layer" data-value="${v}">${l}</button>`).join('')}
+    ${[['all', 'All'], ['pv', 'PV + R&D'], ['off', 'Mine']].map(([v, l]) => `<button type="button" class="${state.prefs.production === v ? 'on' : ''}" data-act="layer" data-value="${v}">${l}</button>`).join('')}
   </div>` : ''
 
 function syncButton(compact) {

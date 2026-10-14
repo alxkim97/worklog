@@ -11,3 +11,5 @@ backups/
 .shots/
 *-tmp.*
 .secrets/
+
+.vercel

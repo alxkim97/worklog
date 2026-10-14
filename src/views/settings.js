@@ -40,7 +40,7 @@ export function renderSettings({ isPhone }) {
       <section class="card">
         <header class="card-head"><h2>${icon('layers', 18)} What to show</h2></header>
         <label class="setting-label">Production layer</label>
-        ${seg('layer', p.production, [['all', 'Everything'], ['pv', 'PV lots only'], ['off', 'Just mine']])}
+        ${seg('layer', p.production, [['all', 'Everything'], ['pv', 'PV + R&D line'], ['off', 'Just mine']])}
         <label class="setting-label">Departments</label>
         <div class="dept-toggles">
           ${DEPTS.map(d => `<button type="button" class="dept-toggle ${p.hiddenDepts.includes(d.key) ? '' : 'on'}" style="--c:${d.color}" data-act="dept" data-value="${d.key}" aria-pressed="${!p.hiddenDepts.includes(d.key)}"><i></i>${d.label}</button>`).join('')}

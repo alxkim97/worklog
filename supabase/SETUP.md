@@ -122,11 +122,15 @@ create table if not exists worklog_sync_runs (
 );
 
 -- Lock everything down: members only (v1 was open to anyone with the key).
+-- Drops every existing policy on these tables, whatever it was named.
 alter table work_tasks        enable row level security;
 alter table work_date_notes   enable row level security;
 alter table worklog_sync_runs enable row level security;
-drop policy if exists "allow_all" on work_tasks;
-drop policy if exists "allow_all" on work_date_notes;
+do $$ declare p record; begin
+  for p in select policyname, tablename from pg_policies
+           where schemaname = 'public' and tablename in ('work_tasks', 'work_date_notes', 'worklog_sync_runs')
+  loop execute format('drop policy %I on %I', p.policyname, p.tablename); end loop;
+end $$;
 drop policy if exists "members" on work_tasks;
 drop policy if exists "members" on work_date_notes;
 drop policy if exists "members read" on worklog_sync_runs;

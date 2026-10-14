@@ -64,7 +64,7 @@ export function renderToday() {
           ${section(`${icon('factory', 18)} Production today`,
             state.prefs.production === 'all'
               ? (production.length ? productionBlock(production) : empty('No production on the plan today.', '🏭'))
-              : `<p class="muted">Production layer is ${state.prefs.production === 'pv' ? 'set to PV lots only' : 'hidden'}. <button class="link" data-act="layer" data-value="all">Show all</button></p>`)}
+              : `<p class="muted">Production layer is ${state.prefs.production === 'pv' ? 'set to PV + R&D line only' : 'hidden'}. <button class="link" data-act="layer" data-value="all">Show all</button></p>`)}
           ${section(`${icon('note', 18)} Notes`, noteList(notes, t))}
         </div>
       </div>

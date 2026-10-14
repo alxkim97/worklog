@@ -3,7 +3,7 @@
 import { esc, icon } from './ui.js'
 import { DEPT_BY_KEY } from '../lib/depts.js'
 import { relDay, shortDate } from './dates.js'
-import { isOverdue, isSheet, groupByDept } from './store.js'
+import { isOverdue, isSheet, isRdLine, groupByDept } from './store.js'
 
 export const TYPES = [
   { key: 'task', label: 'Task', emoji: '✅' },
@@ -67,8 +67,8 @@ export function taskRow(t, { showDate = true } = {}) {
 // Production plan item as a small coloured chip.
 // (map() passes an index as the 2nd arg — opts?.date is undefined then.)
 export const prodChip = (t, opts) => `
-  <button type="button" class="chip" style="--c:${deptColor(t.section)}" data-act="open" data-id="${t.id}" title="${esc(t.sheet_path || '')}">
-    ${t.step ? `<span class="chip-step">${esc(t.step)}</span>` : ''}<span class="chip-name">${esc(t.product_name || t.title)}</span>${opts?.date ? `<span class="chip-date">${esc(shortDate(t.due_date))}</span>` : ''}
+  <button type="button" class="chip${isRdLine(t) ? ' rd-line' : ''}" style="--c:${deptColor(t.section)}" data-act="open" data-id="${t.id}" title="${esc(t.sheet_path || '')}">
+    ${t.step ? `<span class="chip-step">${esc(t.step)}</span>` : ''}${isRdLine(t) ? '<span class="rd-mark">R&amp;D</span>' : ''}<span class="chip-name">${esc(t.product_name || t.title)}</span>${opts?.date ? `<span class="chip-date">${esc(shortDate(t.due_date))}</span>` : ''}
   </button>`
 
 // Production for one day, grouped by department.

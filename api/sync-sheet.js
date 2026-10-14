@@ -17,11 +17,14 @@ export default async function handler(req, res) {
   for (const k of ['SUPABASE_URL', 'SUPABASE_SERVICE_ROLE_KEY', 'GOOGLE_SERVICE_ACCOUNT', 'SHEET_ID']) {
     if (!env[k]) { res.status(500).json({ error: `${k} not set` }); return }
   }
-  const supa = createClient(env.SUPABASE_URL, env.SUPABASE_SERVICE_ROLE_KEY, { auth: { persistSession: false } })
+  // Forgiving about pasted values: a URL copied with /rest/v1/ on the end
+  // (v1's "Invalid path" bug) or trailing whitespace/newlines.
+  const url = env.SUPABASE_URL.trim().replace(/\/rest\/v1\/?$/, '').replace(/\/$/, '')
+  const supa = createClient(url, env.SUPABASE_SERVICE_ROLE_KEY.trim(), { auth: { persistSession: false } })
 
   const bearer = (req.headers.authorization || '').replace(/^Bearer\s+/i, '')
   let trigger = null
-  if (env.CRON_SECRET && bearer === env.CRON_SECRET) trigger = 'cron'
+  if (env.CRON_SECRET && bearer === env.CRON_SECRET.trim()) trigger = 'cron'
   else if (bearer) {
     const { data } = await supa.auth.getUser(bearer)
     if (data?.user) {
@@ -41,7 +44,7 @@ export default async function handler(req, res) {
   }
 
   try {
-    const result = await runSync(supa, { serviceAccount: env.GOOGLE_SERVICE_ACCOUNT, sheetId: env.SHEET_ID, trigger })
+    const result = await runSync(supa, { serviceAccount: env.GOOGLE_SERVICE_ACCOUNT, sheetId: env.SHEET_ID.trim(), trigger })
     res.status(200).json(result)
   } catch (e) {
     res.status(502).json({ ok: false, error: String(e.message || e) })
