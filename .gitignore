@@ -10,3 +10,4 @@ test/fixtures/*.private.json
 backups/
 .shots/
 *-tmp.*
+.secrets/
