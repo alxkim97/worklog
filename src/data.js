@@ -28,6 +28,12 @@ export async function isMember(userId) {
 // Everything from ~4 months back onward, plus anything of yours still open
 // however old it is (so an overdue task never silently drops out of view).
 const HISTORY_DAYS = 120
+// Production-plan steps whose date has passed happened as planned — nobody
+// ticks them off. Show them as done (display only; the row isn't changed)
+// unless you've set a status yourself.
+const auto = r => r.source === 'sheet' && r.status === 'pending' && r.due_date && r.due_date < today()
+  ? { ...r, status: 'done', auto_done: true } : r
+
 const COLS = 'id,title,type,status,priority,start_date,due_date,lot_number,product_name,section,step,assignee,notes,source,sheet_ref,sheet_path,sheet_removed_at,done_at,created_at,updated_at'
 
 export async function fetchTasks() {
@@ -44,7 +50,7 @@ export async function fetchTasks() {
     out.push(...data)
     if (data.length < 1000) break
   }
-  return out
+  return out.map(auto)
 }
 
 // Fields the app may write. Sheet rows only ever get status/notes changed.
@@ -60,7 +66,7 @@ export async function createTask(task) {
 export async function updateTask(id, patch) {
   const { data, error } = await supa.from('work_tasks').update(clean(patch)).eq('id', id).select(COLS).single()
   if (error) throw error
-  return data
+  return auto(data)
 }
 
 export async function deleteTask(id) {

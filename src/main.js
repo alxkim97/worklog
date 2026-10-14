@@ -232,7 +232,9 @@ async function cycleStatus(id) {
   const t = state.tasks.find(x => x.id === id)
   if (!t || isProduction(t)) return
   const prev = t.status
-  t.status = NEXT_STATUS[prev]
+  // an auto-done plan step reopens as 'Doing' — 'To do' would just read as done again
+  t.status = t.auto_done ? 'in_progress' : NEXT_STATUS[prev]
+  delete t.auto_done
   render()
   try {
     Object.assign(t, await updateTask(id, { status: t.status }))
