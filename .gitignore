@@ -1,4 +1,12 @@
-﻿node_modules/
+node_modules/
 dist/
+release/
 *.log
-worklog/
+*.local
+.env*
+.vercel
+# real sheet snapshots can contain production plan data
+test/fixtures/*.private.json
+backups/
+.shots/
+*-tmp.*

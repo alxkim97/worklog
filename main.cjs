@@ -1,0 +1,223 @@
+const { app, BrowserWindow, ipcMain, dialog, Tray, Menu, globalShortcut } = require('electron')
+const path = require('path')
+const { autoUpdater } = require('electron-updater')
+
+// Without this, Windows can cache the taskbar/Start icon against the shared
+// dev electron.exe binary instead of this app's own icon. Unpackaged runs
+// (npm run electron / electron:dev) get their own ID: sharing the installed
+// app's ID made Windows draw the taskbar button from the installed app's
+// Start-menu shortcut, so a dev build showed whatever icon that older
+// install had baked in rather than assets/icon.ico.
+app.setAppUserModelId(app.isPackaged ? 'com.apm.worklog' : 'com.apm.worklog.dev')
+
+// Prevent duplicate windows from "Start with Windows" plus a manual launch.
+const gotSingleInstanceLock = app.requestSingleInstanceLock()
+if (!gotSingleInstanceLock) {
+  app.quit()
+}
+
+const isDev = process.argv.includes('--dev')
+let mainWindow = null
+let tray = null
+let isQuitting = false
+
+function createWindow() {
+  mainWindow = new BrowserWindow({
+    width: 1280,
+    height: 860,
+    minWidth: 860,
+    minHeight: 600,
+    title: 'WorkLog',
+    backgroundColor: '#0f0e17',
+    show: false,
+    autoHideMenuBar: true,
+    icon: path.join(__dirname, 'assets', 'icon.ico'),
+    webPreferences: {
+      preload: path.join(__dirname, 'preload.cjs'),
+      contextIsolation: true,
+      nodeIntegration: false,
+      sandbox: true,
+    },
+  })
+
+  if (isDev) {
+    mainWindow.loadURL('http://localhost:5173')
+    mainWindow.webContents.openDevTools()
+  } else {
+    mainWindow.loadFile(path.join(__dirname, 'dist', 'index.html'))
+  }
+
+  // Show once painted to avoid a white flash on launch.
+  mainWindow.once('ready-to-show', () => mainWindow.show())
+  mainWindow.on('closed', () => { mainWindow = null })
+
+  // The X button minimizes to tray instead of quitting, so WorkLog keeps
+  // running in the background — same as Pinboard — and stays reachable for
+  // periodic update checks without needing to be reopened by hand.
+  mainWindow.on('close', (event) => {
+    if (isQuitting) return
+    event.preventDefault()
+    mainWindow.hide()
+  })
+}
+
+function rebuildTrayMenu() {
+  tray.setContextMenu(Menu.buildFromTemplate([
+    { label: 'Open WorkLog', click: () => { mainWindow.show(); mainWindow.focus() } },
+    { type: 'separator' },
+    updateDownloaded
+      ? { label: 'Restart to Install Update', click: () => { isQuitting = true; autoUpdater.quitAndInstall() } }
+      : { label: 'Check for Updates', click: () => checkForUpdates(true) },
+    { type: 'separator' },
+    { label: 'Quit WorkLog', click: () => { isQuitting = true; app.quit() } },
+  ]))
+}
+
+function createTray() {
+  tray = new Tray(path.join(__dirname, 'assets', 'icon.ico'))
+  tray.setToolTip('WorkLog')
+  rebuildTrayMenu()
+  tray.on('click', () => { mainWindow.show(); mainWindow.focus() })
+}
+
+// Same show/focus idiom as the tray click and second-instance handlers above,
+// plus a 'navigate' push to the already-loaded renderer — the only
+// main-to-renderer IPC channel in the app so far (everything else is
+// renderer-initiated ipcMain.handle calls).
+function focusAndNavigate(view) {
+  if (!mainWindow) return
+  if (mainWindow.isMinimized()) mainWindow.restore()
+  mainWindow.show()
+  mainWindow.focus()
+  mainWindow.webContents.send('navigate', view)
+}
+
+// Auto-update via electron-updater + GitHub Releases. A manual check (from
+// the renderer's Settings page) always reports back — found, not found, or
+// error; the periodic background check stays silent unless it actually
+// finds something, so it doesn't nag.
+let updateDownloaded = false
+autoUpdater.autoInstallOnAppQuit = true
+
+autoUpdater.on('update-downloaded', (info) => {
+  updateDownloaded = true
+  if (tray) rebuildTrayMenu()
+  dialog.showMessageBox({
+    type: 'info',
+    title: 'WorkLog update ready',
+    message: `WorkLog ${info.version} has been downloaded.`,
+    detail: 'Restart now to install it, or it will install automatically the next time WorkLog quits.',
+    buttons: ['Restart Now', 'Later'],
+    defaultId: 0,
+    cancelId: 1,
+  }).then(({ response }) => {
+    if (response === 0) { isQuitting = true; autoUpdater.quitAndInstall() }
+  })
+})
+
+autoUpdater.on('error', (err) => {
+  console.error('autoUpdater error:', err)
+})
+
+// checkInProgress guards BOTH manual and periodic checks against the same
+// shared autoUpdater event emitter, so a background tick firing mid-click
+// can't steal the listeners registered for the user's own manual check (and
+// vice versa). It's reset via .finally() on the check promise itself, not
+// only from the event handlers below — a rejection that doesn't also emit
+// 'error' used to leave it stuck true forever, silently disabling every
+// future "Check for Updates" click until restart.
+let checkInProgress = false
+function checkForUpdates(manual) {
+  if (isDev) return updateDownloaded ? 'downloaded' : 'skipped-dev'
+  if (updateDownloaded) {
+    if (manual) dialog.showMessageBox({ type: 'info', title: 'WorkLog', message: 'Update already downloaded — restart WorkLog to install it.' })
+    return
+  }
+  if (checkInProgress) return // a check is already in flight — let it finish rather than racing a second one
+  checkInProgress = true
+  const cleanup = () => {
+    autoUpdater.off('update-not-available', onNotAvailable)
+    autoUpdater.off('update-available', onAvailable)
+    autoUpdater.off('error', onError)
+  }
+  const onAvailable = (info) => {
+    cleanup()
+    if (manual) dialog.showMessageBox({
+      type: 'info',
+      title: 'WorkLog',
+      message: `Update found: WorkLog ${info.version}`,
+      detail: 'Downloading now — you\'ll get another prompt when it\'s ready to install.',
+    })
+  }
+  const onNotAvailable = () => {
+    cleanup()
+    if (manual) dialog.showMessageBox({ type: 'info', title: 'WorkLog', message: "You're up to date." })
+  }
+  const onError = (err) => {
+    cleanup()
+    if (manual) dialog.showMessageBox({
+      type: 'error',
+      title: 'Update check failed',
+      message: 'Could not check for updates.',
+      detail: String((err && err.message) || err),
+    })
+  }
+  autoUpdater.once('update-not-available', onNotAvailable)
+  autoUpdater.once('update-available', onAvailable)
+  autoUpdater.once('error', onError)
+  autoUpdater.checkForUpdates()
+    .catch(() => {}) // surfaced via the 'error' event above too — this just avoids an unhandled-rejection log
+    .finally(() => { checkInProgress = false })
+}
+
+ipcMain.handle('updater:check', () => checkForUpdates(true))
+ipcMain.handle('app:get-version', () => app.getVersion())
+
+if (gotSingleInstanceLock) {
+  app.on('second-instance', () => {
+    if (!mainWindow) return
+    if (mainWindow.isMinimized()) mainWindow.restore()
+    mainWindow.show()
+    mainWindow.focus()
+  })
+
+  app.whenReady().then(() => {
+    createWindow()
+    try {
+      createTray()
+    } catch (err) {
+      // A broken tray icon shouldn't take down the update timers below —
+      // it did exactly that once already when the icon wasn't packaged.
+      console.error('createTray failed:', err)
+    }
+
+    if (!isDev) {
+      // Delay the first check past startup so it doesn't compete with the
+      // dashboard's initial load, then recheck periodically since this is a
+      // long-running desktop app that may stay open for days.
+      setTimeout(() => checkForUpdates(false), 10_000)
+      setInterval(() => checkForUpdates(false), 4 * 60 * 60 * 1000)
+    }
+
+    // Global shortcut works even when WorkLog is minimized to tray/background —
+    // the whole point, since that's its normal resting state (close-to-tray).
+    const registered = globalShortcut.register('CommandOrControl+Shift+L', () => focusAndNavigate('add'))
+    if (!registered) console.error('Failed to register global shortcut CommandOrControl+Shift+L')
+
+    app.on('activate', () => {
+      if (BrowserWindow.getAllWindows().length === 0) createWindow()
+    })
+  })
+}
+
+app.on('before-quit', () => {
+  isQuitting = true
+})
+
+app.on('will-quit', () => {
+  globalShortcut.unregisterAll()
+})
+
+app.on('window-all-closed', () => {
+  if (process.platform !== 'darwin') app.quit()
+})

@@ -1,46 +1,70 @@
 {
   "name": "worklog",
-  "version": "1.5.2",
-  "description": "WorkLog — R&D Team Planning & Production Schedule Tracker",
-  "main": "main.js",
+  "version": "2.0.0",
+  "private": true,
+  "description": "WorkLog — R&D planner on top of the APm production schedule",
   "author": "Alex · APm R&D",
-  "license": "MIT",
+  "type": "module",
+  "main": "main.cjs",
   "scripts": {
-    "start": "electron .",
-    "dev": "electron . --dev",
-    "build": "electron-builder --win --x64"
+    "dev": "vite",
+    "demo": "vite --mode demo",
+    "build": "vite build",
+    "preview": "vite preview",
+    "test": "node --test test/*.test.js",
+    "backup": "node scripts/backup.js",
+    "electron": "electron .",
+    "electron:dev": "electron . --dev",
+    "electron:build": "vite build && electron-builder --win --x64",
+    "release": "npm run electron:build && node scripts/publish-release.js",
+    "shots": "node scripts/run-electron.js scripts/screenshot.cjs"
   },
   "dependencies": {
-    "@supabase/supabase-js": "^2.45.0",
-    "ws": "^8.21.0"
+    "@supabase/supabase-js": "^2.110.7",
+    "electron-updater": "^6.8.9"
   },
   "devDependencies": {
-    "electron": "^31.0.0",
-    "electron-builder": "^24.13.3"
+    "electron": "^44.7.0",
+    "electron-builder": "^26.15.3",
+    "vite": "^8.1.1",
+    "vite-plugin-pwa": "^1.3.0"
   },
   "build": {
     "appId": "com.apm.worklog",
     "productName": "WorkLog",
     "copyright": "Copyright © 2026 Alex · APm R&D",
     "files": [
-      "main.js",
-      "preload.js",
-      "index.html",
-      "assets/**/*",
-      "node_modules/@supabase/**/*",
-      "node_modules/node-fetch/**/*",
-      "node_modules/ws/**/*"
+      "main.cjs",
+      "preload.cjs",
+      "dist/**/*",
+      "assets/**/*"
     ],
+    "directories": {
+      "output": "release",
+      "buildResources": "assets"
+    },
     "win": {
       "target": [
-        "nsis",
-        "portable"
+        {
+          "target": "nsis",
+          "arch": [
+            "x64"
+          ]
+        }
       ],
       "icon": "assets/icon.ico"
     },
     "nsis": {
       "oneClick": false,
-      "allowToChangeInstallationDirectory": true
+      "allowToChangeInstallationDirectory": true,
+      "createDesktopShortcut": true,
+      "createStartMenuShortcut": true,
+      "shortcutName": "WorkLog"
+    },
+    "publish": {
+      "provider": "github",
+      "owner": "alxkim97",
+      "repo": "worklog"
     }
   }
 }
