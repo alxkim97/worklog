@@ -1,9 +1,12 @@
 // Pieces of markup shared by every view. Interaction is wired by data-act
-// attributes and one delegated click handler in main.js.
+// attributes and one delegated click handler in app.js.
 import { esc, icon } from './ui.js'
 import { DEPT_BY_KEY } from '../lib/depts.js'
 import { relDay, shortDate } from './dates.js'
 import { isOverdue, isSheet, isRdLine, groupByDept } from './store.js'
+import { reminderFor, remindLabel } from './reminders.js'
+
+const bell = t => { const r = reminderFor(t); return r ? `<span class="has-bell" title="Reminder: ${esc(remindLabel(r.days))}${r.auto ? ' (PV default)' : ''}">${icon('bell', 13)}</span>` : '' }
 
 export const TYPES = [
   { key: 'task', label: 'Task', emoji: '✅' },
@@ -52,6 +55,7 @@ export function taskRow(t, { showDate = true } = {}) {
     isOverdue(t) ? '<span class="flag late">Late</span>' : '',
     t.type === 'pv_lot' ? '<span class="flag pv">PV</span>' : '',
     t.notes ? `<span class="has-note" title="Has notes">${icon('note', 13)}</span>` : '',
+    bell(t),
   ].join('')
   return `
     <div class="task s-${t.status}" style="--c:${deptColor(t.section || 'rd')}" data-act="open" data-id="${t.id}" tabindex="0">
@@ -67,8 +71,8 @@ export function taskRow(t, { showDate = true } = {}) {
 // Production plan item as a small coloured chip.
 // (map() passes an index as the 2nd arg — opts?.date is undefined then.)
 export const prodChip = (t, opts) => `
-  <button type="button" class="chip${isRdLine(t) ? ' rd-line' : ''}" style="--c:${deptColor(t.section)}" data-act="open" data-id="${t.id}" title="${esc(t.sheet_path || '')}">
-    ${t.step ? `<span class="chip-step">${esc(t.step)}</span>` : ''}${isRdLine(t) ? '<span class="rd-mark">R&amp;D</span>' : ''}<span class="chip-name">${esc(t.product_name || t.title)}</span>${opts?.date ? `<span class="chip-date">${esc(shortDate(t.due_date))}</span>` : ''}
+  <button type="button" class="chip${isRdLine(t) ? ' rd-line' : ''}" style="--c:${deptColor(t.section)}" data-act="open" data-id="${t.id}" title="${esc([t.step, t.product_name || t.title].filter(Boolean).join(' · ') + (t.sheet_path ? ` — ${t.sheet_path}` : ''))}">
+    ${t.step ? `<span class="chip-step">${esc(t.step)}</span>` : ''}${isRdLine(t) ? '<span class="rd-mark">R&amp;D</span>' : ''}<span class="chip-name">${esc(t.product_name || t.title)}</span>${bell(t)}${opts?.date ? `<span class="chip-date">${esc(shortDate(t.due_date))}</span>` : ''}
   </button>`
 
 // Production for one day, grouped by department.

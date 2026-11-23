@@ -9,6 +9,10 @@ const defaultPrefs = {
   production: 'all',           // all | pv | off — how much of the sheet to layer in
   hiddenDepts: [],             // dept keys switched off
   theme: 'system',             // system | light | dark
+  planMode: 'week',            // the Plan view's last mode: week | month
+  collapsed: false,            // desktop: hide the nav sidebar + month day panel
+  remindTime: '08:30',         // when reminders fire on their day
+  pvRemind: 1,                 // PV lots without their own setting: days before (null = off)
 }
 
 function loadPrefs() {

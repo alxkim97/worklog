@@ -1,5 +1,6 @@
-const { app, BrowserWindow, ipcMain, dialog, Tray, Menu, globalShortcut } = require('electron')
+const { app, BrowserWindow, ipcMain, dialog, Tray, Menu, globalShortcut, screen } = require('electron')
 const path = require('path')
+const fs = require('fs')
 const { autoUpdater } = require('electron-updater')
 
 // Without this, Windows can cache the taskbar/Start icon against the shared
@@ -61,9 +62,101 @@ function createWindow() {
   })
 }
 
+// ── Month widget ──────────────────────────────────────────────────────────
+// A small frameless window with the month calendar that lives on the desktop.
+// Same bundle as the main window, loaded with #widget. Its position, size,
+// pin-on-top and whether it was open are kept in userData/widget.json so it
+// comes back where you left it after a restart.
+let widgetWindow = null
+const widgetFile = () => path.join(app.getPath('userData'), 'widget.json')
+function loadWidgetState() {
+  try { return JSON.parse(fs.readFileSync(widgetFile(), 'utf8')) } catch { return {} }
+}
+function saveWidgetState(patch) {
+  const next = { ...loadWidgetState(), ...patch }
+  try { fs.writeFileSync(widgetFile(), JSON.stringify(next)) } catch (err) { console.error('widget state:', err) }
+  return next
+}
+
+// Saved bounds only if they still land on a connected screen.
+function widgetBounds(saved) {
+  const area = screen.getPrimaryDisplay().workArea
+  const def = { width: 420, height: 560, x: area.x + area.width - 440, y: area.y + 20 }
+  if (!saved?.bounds) return def
+  const b = saved.bounds
+  const onScreen = screen.getAllDisplays().some(d => {
+    const w = d.workArea
+    return b.x < w.x + w.width - 40 && b.x + b.width > w.x + 40 && b.y >= w.y - 10 && b.y < w.y + w.height - 40
+  })
+  return onScreen ? b : def
+}
+
+function createWidget() {
+  if (widgetWindow) { widgetWindow.show(); widgetWindow.focus(); return }
+  const saved = loadWidgetState()
+  widgetWindow = new BrowserWindow({
+    ...widgetBounds(saved),
+    minWidth: 300,
+    minHeight: 320,
+    frame: false,
+    resizable: true,
+    skipTaskbar: true,
+    alwaysOnTop: !!saved.onTop,
+    minimizable: false,
+    maximizable: false,
+    fullscreenable: false,
+    title: 'WorkLog month',
+    backgroundColor: '#0f0e17',
+    show: false,
+    icon: path.join(__dirname, 'assets', 'icon.ico'),
+    webPreferences: {
+      preload: path.join(__dirname, 'preload.cjs'),
+      contextIsolation: true,
+      nodeIntegration: false,
+      sandbox: true,
+    },
+  })
+  if (isDev) widgetWindow.loadURL('http://localhost:5173/#widget')
+  else widgetWindow.loadFile(path.join(__dirname, 'dist', 'index.html'), { hash: 'widget' })
+  widgetWindow.once('ready-to-show', () => widgetWindow.showInactive())
+  const remember = () => { if (widgetWindow && !widgetWindow.isDestroyed()) saveWidgetState({ bounds: widgetWindow.getBounds() }) }
+  widgetWindow.on('moved', remember)
+  widgetWindow.on('resized', remember)
+  // Closed by hand (button, tray, Alt+F4) = stays closed next launch.
+  // Closed because the app is quitting = comes back next launch.
+  widgetWindow.on('close', () => { saveWidgetState({ bounds: widgetWindow.getBounds(), ...(isQuitting ? {} : { open: false }) }) })
+  widgetWindow.on('closed', () => { widgetWindow = null; if (tray) rebuildTrayMenu() })
+  saveWidgetState({ open: true })
+  if (tray) rebuildTrayMenu()
+}
+
+function closeWidget() {
+  widgetWindow?.close()
+}
+
+ipcMain.handle('widget:toggle', () => (widgetWindow ? closeWidget() : createWidget()))
+ipcMain.handle('widget:close', () => closeWidget())
+ipcMain.handle('widget:state', () => ({ open: !!widgetWindow, onTop: !!loadWidgetState().onTop }))
+ipcMain.handle('widget:on-top', (_e, on) => {
+  saveWidgetState({ onTop: !!on })
+  widgetWindow?.setAlwaysOnTop(!!on)
+})
+ipcMain.handle('widget:open-main', (_e, msg) => {
+  if (msg && (msg.date || msg.id)) focusAndNavigate(msg)
+  else if (mainWindow) { if (mainWindow.isMinimized()) mainWindow.restore(); mainWindow.show(); mainWindow.focus() }
+})
+// A reminder notification was clicked.
+ipcMain.handle('app:focus', () => {
+  if (!mainWindow) return
+  if (mainWindow.isMinimized()) mainWindow.restore()
+  mainWindow.show()
+  mainWindow.focus()
+})
+
 function rebuildTrayMenu() {
   tray.setContextMenu(Menu.buildFromTemplate([
     { label: 'Open WorkLog', click: () => { mainWindow.show(); mainWindow.focus() } },
+    { label: widgetWindow ? 'Hide month widget' : 'Show month widget', click: () => (widgetWindow ? closeWidget() : createWidget()) },
     { type: 'separator' },
     updateDownloaded
       ? { label: 'Restart to Install Update', click: () => { isQuitting = true; autoUpdater.quitAndInstall() } }
@@ -82,8 +175,9 @@ function createTray() {
 
 // Same show/focus idiom as the tray click and second-instance handlers above,
 // plus a 'navigate' push to the already-loaded renderer — the only
-// main-to-renderer IPC channel in the app so far (everything else is
-// renderer-initiated ipcMain.handle calls).
+// main-to-renderer IPC channel (everything else is renderer-initiated
+// ipcMain.handle calls). The message is 'add' (global shortcut) or
+// { view, date } / { id } from the month widget.
 function focusAndNavigate(view) {
   if (!mainWindow) return
   if (mainWindow.isMinimized()) mainWindow.restore()
@@ -183,6 +277,7 @@ if (gotSingleInstanceLock) {
 
   app.whenReady().then(() => {
     createWindow()
+    if (loadWidgetState().open) createWidget()
     try {
       createTray()
     } catch (err) {

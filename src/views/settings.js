@@ -2,6 +2,8 @@ import { state } from '../store.js'
 import { DEPTS } from '../../lib/depts.js'
 import { timeAgo } from '../dates.js'
 import { esc, icon } from '../ui.js'
+import { canNotify } from '../reminders.js'
+import { remindColumnReady } from '../data.js'
 
 const seg = (act, current, options) => `
   <div class="seg" role="radiogroup">
@@ -25,7 +27,6 @@ export function renderSettings({ isPhone }) {
     <div class="settings">
       ${isPhone ? `
         <section class="card">
-          <button class="row-link" data-act="nav" data-view="lots">${icon('flask', 20)}<span>PV lots</span>${icon('right', 18)}</button>
           <button class="row-link" data-act="nav" data-view="search">${icon('search', 20)}<span>Search</span>${icon('right', 18)}</button>
         </section>` : ''}
 
@@ -48,6 +49,26 @@ export function renderSettings({ isPhone }) {
       </section>
 
       <section class="card">
+        <header class="card-head"><h2>${icon('bell', 18)} Reminders</h2></header>
+        <label class="setting-label">PV lots — remind me</label>
+        ${seg('pv-remind', p.pvRemind == null ? 'off' : String(p.pvRemind), [['off', 'Off'], ['0', 'On the day'], ['1', '1 day before'], ['2', '2 days'], ['3', '3 days']])}
+        <label class="setting-label" for="remind-time">At</label>
+        <input type="time" id="remind-time" class="time-input" value="${esc(p.remindTime)}">
+        <div class="row-gap" style="margin-top:14px"><button class="btn soft small" data-act="test-notify">${icon('bell', 15)} Send a test</button></div>
+        <p class="muted small">Applies to every PV step from the plan unless you set something else on the step. Any task can have its own reminder: open it and pick <b>Remind me</b>.
+          ${window.electronAPI ? 'Reminders pop up as Windows notifications while WorkLog runs (it keeps running in the tray).' : canNotify() ? `This browser shows them only while WorkLog is open${typeof Notification !== 'undefined' && Notification.permission === 'denied' ? ' — and notifications are blocked for this site' : ''}. The desktop app is the reliable one.` : 'This browser can’t show notifications — use the desktop app.'}</p>
+        ${remindColumnReady() ? '' : '<p class="error-text">Per-task reminders need one line of SQL in Supabase (SETUP.md, part D). PV reminders work already.</p>'}
+      </section>
+
+      ${window.electronAPI?.widget ? `
+      <section class="card">
+        <header class="card-head"><h2>${icon('pin', 18)} Desktop widget</h2></header>
+        <p class="setting-line">A small month calendar that stays on your desktop.</p>
+        <button class="btn soft" data-act="widget">${icon('pin', 16)} Pin month to desktop</button>
+        <p class="muted small">Drag it by its title bar, resize from the edges. The pin button on the widget keeps it above other windows.</p>
+      </section>` : ''}
+
+      <section class="card">
         <header class="card-head"><h2>${icon('moon', 18)} Appearance</h2></header>
         ${seg('theme', p.theme, [['system', 'Auto'], ['light', 'Light'], ['dark', 'Dark']])}
       </section>
@@ -64,7 +85,7 @@ export function renderSettings({ isPhone }) {
           ${window.electronAPI ? `<button class="btn soft" data-act="update">Check for updates</button>` : ''}
           <button class="btn ghost" data-act="signout">${icon('logout', 16)} Sign out</button>
         </div>
-        <p class="muted small version">WorkLog v${__APP_VERSION__}</p>
+        <p class="muted small version">WorkLog v${__APP_VERSION__} · Alex Kim</p>
       </section>
     </div>`
 }

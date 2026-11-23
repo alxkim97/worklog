@@ -1,7 +1,8 @@
-import { state, counts, dayContent, isTracked, isOpen, isOverdue, visible, byImportance } from '../store.js'
+import { state, counts, dayContent, isTracked, isOpen, isOverdue, visible, byImportance, startOf } from '../store.js'
 import { today, addDays, longDate, relDay } from '../dates.js'
 import { taskRow, productionBlock, empty, noteList } from '../components.js'
 import { esc, icon } from '../ui.js'
+import { upcomingReminders, whenLabel } from '../reminders.js'
 
 function greeting() {
   const h = new Date().getHours()
@@ -65,6 +66,7 @@ export function renderToday() {
             state.prefs.production === 'all'
               ? (production.length ? productionBlock(production) : empty('No production on the plan today.', '🏭'))
               : `<p class="muted">Production layer is ${state.prefs.production === 'pv' ? 'set to PV + R&D line only' : 'hidden'}. <button class="link" data-act="layer" data-value="all">Show all</button></p>`)}
+          ${section(`${icon('bell', 18)} Reminders`, reminderList(), { action: `<button class="link small" data-act="nav" data-view="settings">Settings</button>` })}
           ${section(`${icon('note', 18)} Notes`, noteList(notes, t))}
         </div>
       </div>
@@ -76,4 +78,16 @@ function heroLine(c, doneToday) {
   if (c.today === 0 && doneToday) return `All done for today. Nice work ✨`
   if (c.today === 0) return `A clear day. ${c.production ? `${c.production} production runs on the floor.` : ''}`
   return `${c.today} on your plate today${doneToday ? `, ${doneToday} already done` : ''}.`
+}
+
+// Next two weeks of reminders (PV steps by default + anything you set).
+function reminderList() {
+  const items = upcomingReminders(14).slice(0, 8)
+  if (!items.length) return `<p class="muted small">No reminders in the next two weeks. Open a task and pick <b>Remind me</b>${state.prefs.pvRemind == null ? ', or switch on PV reminders in Settings' : ''}.</p>`
+  return `<div class="reminders">${items.map(({ task, at, r }) => `
+    <button type="button" class="reminder" data-act="open" data-id="${task.id}" style="--c:${task.type === 'pv_lot' ? 'var(--accent)' : 'var(--amber)'}">
+      <span class="rem-when">${esc(whenLabel(at))}</span>
+      <span class="rem-what">${esc(task.source === 'sheet' ? (task.product_name || task.title) : task.title)}</span>
+      <span class="rem-meta">${esc([task.step, relDay(startOf(task))].filter(Boolean).join(' · '))}${r.auto ? ' · PV' : ''}</span>
+    </button>`).join('')}</div>`
 }

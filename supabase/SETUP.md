@@ -154,6 +154,17 @@ Then, since it's just you: **Authentication → Sign In / Providers → turn off
 "Allow new users to sign up"**. Non-members couldn't see anything anyway, but
 there's no reason to let strangers create accounts.
 
+## D — v2.1 reminders
+
+One new column for per-task reminders (0 = on the day, n = days before,
+-1 = off, empty = default). The sheet sync never writes it, so reminders on
+plan rows survive syncs. Until this runs, the app works as before without
+per-task reminders; PV-lot reminders from Settings work either way.
+
+```sql
+alter table work_tasks add column if not exists remind_days smallint;
+```
+
 ## Vercel environment variables (sheet sync)
 
 | Name | Value |

@@ -5,10 +5,12 @@ import { esc, icon } from '../ui.js'
 
 export const monthTitle = () => monthYear(state.cursor)
 
-const WEEKDAYS = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun']
-const MAX_PILLS = 3
+const WEEKDAYS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat']
+let maxPills = 3
 
-export function renderMonth() {
+// wide: sidebars hidden (desktop) — no day panel, more room per cell.
+export function renderMonth({ wide = false } = {}) {
+  maxPills = wide ? 5 : 3
   const first = monthStart(state.cursor)
   const month = first.slice(0, 7)
   const start = weekStart(first)
@@ -18,14 +20,14 @@ export function renderMonth() {
   const days = Array.from({ length: weeks * 7 }, (_, i) => addDays(start, i))
 
   return `
-    <div class="month">
+    <div class="month${wide ? ' wide' : ''}">
       <div class="month-grid-wrap">
         <div class="month-grid" style="--rows:${weeks}">
           ${WEEKDAYS.map(w => `<div class="mg-wd">${w}</div>`).join('')}
           ${days.map(d => cell(d, month, t)).join('')}
         </div>
       </div>
-      <aside class="day-panel">${dayPanel(state.selected)}</aside>
+      ${wide ? '' : `<aside class="day-panel" data-date="${state.selected}">${dayPanel(state.selected)}</aside>`}
     </div>`
 }
 
@@ -37,8 +39,8 @@ function cell(d, month, t) {
     <div class="${cls}" data-act="select" data-date="${d}" role="button" tabindex="0" aria-label="${esc(longDate(d))}">
       <div class="mg-num">${dayNum(d)}${notes.length ? `<span class="mg-note">${icon('note', 11)}</span>` : ''}</div>
       <div class="mg-pills">
-        ${mine.slice(0, MAX_PILLS).map(x => `<div class="pill s-${x.status}" style="--c:${deptColor(x.section || 'rd')}">${esc(x.product_name && x.source === 'sheet' ? x.product_name : x.title)}</div>`).join('')}
-        ${mine.length > MAX_PILLS ? `<div class="pill more">+${mine.length - MAX_PILLS} more</div>` : ''}
+        ${mine.slice(0, maxPills).map(x => `<div class="pill s-${x.status}" style="--c:${deptColor(x.section || 'rd')}">${esc(x.product_name && x.source === 'sheet' ? x.product_name : x.title)}</div>`).join('')}
+        ${mine.length > maxPills ? `<div class="pill more">+${mine.length - maxPills} more</div>` : ''}
       </div>
       <div class="mg-prod" ${production.length ? `title="Production: ${groups.map(g => `${esc(g.dept.label)} ${g.tasks.length}`).join(', ')}"` : ''}>
         ${groups.map(g => `<span class="bar" style="--c:${g.dept.color};flex:${g.tasks.length}"></span>`).join('')}

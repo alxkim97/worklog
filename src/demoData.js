@@ -9,11 +9,11 @@ const id = () => `demo-${++n}`
 const now = () => new Date().toISOString()
 
 const PRODUCTS = {
-  tablets: ['Paracetamol 500', 'Amoxicillin 250', 'Ibuprofen 400', 'Cetirizine 10', 'Metformin 850', 'Vitamin C 1000'],
-  cream: ['Hydro Gel A', 'Clotrimazole Cream', 'Aloe Lotion'],
-  liquid: ['Cough Syrup DM', 'Kids Para Syrup', 'ORS Lemon'],
-  disp: ['Amox (12)', 'Para (31)', 'Ibu (07)', 'Cetiri (18)'],
-  packing: ['Blister run A', 'Bottle line 2'],
+  tablets: ['Ramol 500 mg film-coated', 'Ramol OVAL 650 mg', 'TC-mycin 250 mg capsule', 'P-400 500 mg tablet', 'Zarium 10 mg dispersible', 'Banocin 5 mg powder sachet'],
+  cream: ['MASAGA SSS cream 30 g', 'Banocinoral gel 5 g tube', 'Polycin ointment 10 g'],
+  liquid: ['Machto Gel PET 240 mL', 'Hashi syrup 60 mL', 'Dimophen syrup 60 mL'],
+  disp: ['MASAGA SSS (12)', 'TC-mycin 2×5 g (31)', 'Polycin ointment (07)', 'DIMOPHEN DS (18)'],
+  packing: ['Hashi syrup bottle line', 'TC-mycin strip 10×10'],
 }
 const STEPS = { tablets: ['Mix', 'Tab', 'Coat', 'Blister'], cream: ['Mix', 'Bottle'], liquid: ['Mix', 'Bottle'] }
 
@@ -34,7 +34,7 @@ function build() {
           id: id(), source: 'sheet', type: 'production', status: 'pending', priority: 'normal',
           title: step ? `[${step}] ${product}` : product, product_name: product, section: dept, step,
           due_date: date, start_date: null, lot_number: (product.match(/\((\d+)\)/) || [])[1] || null,
-          sheet_ref: `${date}|${dept}|${step || ''}|${product}|${i}`, sheet_path: `${dept[0].toUpperCase() + dept.slice(1)} › ${step || 'Disp'}`,
+          sheet_ref: `${date}|${dept}|${step || ''}|${product}|${i}`, sheet_path: `${dept[0].toUpperCase() + dept.slice(1)} › ${dept === 'liquid' && i === 0 && d % 3 === 0 ? 'R&D line › ' : ''}${step || 'Disp'}`,
           notes: null, created_at: now(), updated_at: now(),
         })
       }
@@ -42,9 +42,9 @@ function build() {
   }
   // PV lots: one product through its steps over a couple of weeks.
   const lots = [
-    { name: 'PV1 Vitamin C 1000 (101)', lot: '101', dept: 'tablets', start: -8, steps: ['Mix', 'Tab', 'Coat', 'Blister'] },
-    { name: 'PV2 Cetirizine 10 (114)', lot: '114', dept: 'tablets', start: 2, steps: ['Mix', 'Tab', 'Blister'] },
-    { name: 'PV1 Aloe Lotion (205)', lot: '205', dept: 'cream', start: -3, steps: ['Mix', 'Bottle'] },
+    { name: 'BANOCINORAL 50×1g (04) PV1', lot: '101', dept: 'tablets', start: -8, steps: ['Mix', 'Tab', 'Coat', 'Blister'] },
+    { name: 'Machto Gel PET 240mL PV1', lot: '114', dept: 'tablets', start: 2, steps: ['Mix', 'Tab', 'Blister'] },
+    { name: 'Polycin ointment 10 g PV2', lot: '205', dept: 'cream', start: -3, steps: ['Mix', 'Bottle'] },
   ]
   for (const l of lots) {
     l.steps.forEach((step, i) => {
@@ -62,7 +62,7 @@ function build() {
     { title: 'R&D weekly sync', type: 'meeting', due: 0, status: 'done' },
     { title: 'Send COA request to supplier', type: 'task', due: -2, priority: 'critical' },
     { title: 'Update SOP-RD-014 with new pH range', type: 'document', due: -1 },
-    { title: 'Order HPLC columns', type: 'task', due: 1 },
+    { title: 'Order HPLC columns', type: 'task', due: 1, remind: 0 },
     { title: 'Vitamin C coating trial', type: 'rd_experiment', due: 4, start: 2, lot: 'T-07' },
     { title: 'Prepare PV2 Cetirizine sampling plan', type: 'pv_lot', due: 2, priority: 'high' },
     { title: 'Monthly report draft', type: 'document', due: 6 },
@@ -73,7 +73,7 @@ function build() {
     tasks.push({
       id: id(), source: 'manual', type: m.type, status: m.status || 'pending', priority: m.priority || 'normal',
       title: m.title, section: 'rd', due_date: m.due == null ? null : addDays(t, m.due), start_date: m.start != null ? addDays(t, m.start) : null,
-      lot_number: m.lot || null, notes: m.type === 'rd_experiment' ? 'Use apparatus 2, 50 rpm.' : null, created_at: now(), updated_at: now(),
+      lot_number: m.lot || null, remind_days: m.remind ?? null, notes: m.type === 'rd_experiment' ? 'Use apparatus 2, 50 rpm.' : null, created_at: now(), updated_at: now(),
     })
   }
   return tasks
@@ -89,6 +89,7 @@ const wait = (ms = 120) => new Promise(r => setTimeout(r, ms))
 const copy = x => JSON.parse(JSON.stringify(x))
 
 export const supa = null
+export const remindColumnReady = () => true
 export const getSession = async () => session
 export const onAuthChange = () => {}
 export const signIn = async () => {}

@@ -2,7 +2,8 @@ import { openModal, confirmBox, toast, esc, icon } from './ui.js'
 import { TYPES, STATUSES, PRIORITIES, deptColor, deptLabel } from './components.js'
 import { DEPTS } from '../lib/depts.js'
 import { state, isSheet, isProduction } from './store.js'
-import { createTask, updateTask, deleteTask, restoreTask } from './data.js'
+import { createTask, updateTask, deleteTask, restoreTask, remindColumnReady } from './data.js'
+import { REMIND_OPTIONS, askPermission } from './reminders.js'
 import { today, longDate } from './dates.js'
 
 const chips = (name, options, current, { colored } = {}) => `
@@ -13,6 +14,23 @@ const chips = (name, options, current, { colored } = {}) => `
         <span>${o.emoji ? `${o.emoji} ` : ''}${colored ? '<i></i>' : ''}${esc(o.label)}</span>
       </label>`).join('')}
   </div>`
+
+// "Remind me" chips. PV lots get a 'Default' option that follows Settings.
+function remindField(t) {
+  if (!remindColumnReady()) return ''
+  const pvDefault = t.type === 'pv_lot'
+  const opts = [...(pvDefault ? [{ key: 'default', label: `Default (${state.prefs.pvRemind == null ? 'off' : REMIND_OPTIONS.find(o => o.days === state.prefs.pvRemind)?.label.toLowerCase()})` }] : []), ...REMIND_OPTIONS]
+  const cur = t.remind_days == null ? (pvDefault ? 'default' : 'off') : (REMIND_OPTIONS.find(o => o.days === t.remind_days)?.key || 'off')
+  return `<div class="field remind-field"><span class="field-label">${icon('bell', 14)} Remind me</span>${chips('remind', opts, cur)}</div>`
+}
+function readRemind(f) {
+  const v = f.get('remind')
+  if (v == null || v === 'default') return null
+  const o = REMIND_OPTIONS.find(x => x.key === v)
+  return o ? o.days : null
+}
+// Manual tasks: 'Off' is plain null (no default applies), except PV lots.
+const remindValue = (f, type) => { const d = readRemind(f); return d === -1 && type !== 'pv_lot' ? null : d }
 
 // Upserts the edited row into state.tasks and redraws.
 function put(row, rerender) {
@@ -45,6 +63,7 @@ export function openEditor({ id, date } = {}, rerender) {
             : `<button type="button" class="link span-btn" data-span>+ Spans several days</button>`}
         </div>
         ${t ? `<div class="field"><span class="field-label">Status</span>${chips('status', STATUSES, v.status)}</div>` : ''}
+        <div class="remind-slot">${remindField(v)}</div>
         <details class="more-opts" ${t || !quickAdd ? 'open' : ''}>
           <summary>More options</summary>
           <div class="more-body">
@@ -69,7 +88,12 @@ export function openEditor({ id, date } = {}, rerender) {
   setTimeout(() => titleInput.focus(), 50)
 
   form.addEventListener('change', e => {
-    if (e.target.name === 'type') form.querySelector('.lot-field').hidden = !['pv_lot', 'rd_experiment'].includes(e.target.value)
+    if (e.target.name === 'type') {
+      form.querySelector('.lot-field').hidden = !['pv_lot', 'rd_experiment'].includes(e.target.value)
+      const keep = readRemind(new FormData(form))
+      form.querySelector('.remind-slot').innerHTML = remindField({ type: e.target.value, remind_days: keep === -1 ? null : keep })
+    }
+    if (e.target.name === 'remind' && e.target.value !== 'off') askPermission()
   })
   form.querySelector('[data-span]')?.addEventListener('click', e => {
     const row = e.target.closest('.field-row')
@@ -94,6 +118,7 @@ export function openEditor({ id, date } = {}, rerender) {
       start_date: start && start !== due ? start : null, due_date: due,
       notes: String(f.get('notes') || '').trim() || null,
       lot_number: String(f.get('lot_number') || '').trim() || null,
+      remind_days: remindValue(f, f.get('type')),
     }
     if (t) patch.status = f.get('status')
     const btn = form.querySelector('[type=submit]')
@@ -139,6 +164,7 @@ function openSheetTask(t, rerender) {
         </dl>
         <p class="muted small">${icon('factory', 14)} From the production plan. Dates and names update from the sheet; your status and notes are kept.</p>
         ${tracked ? `<div class="field"><span class="field-label">Status</span>${chips('status', STATUSES, t.status)}</div>` : ''}
+        ${remindField(t)}
         <label class="field">Your notes<textarea name="notes" rows="3" placeholder="Observations, sample IDs…">${esc(t.notes || '')}</textarea></label>
       </div>
       <footer class="modal-foot">
@@ -151,11 +177,13 @@ function openSheetTask(t, rerender) {
     </form>`)
   const form = m.el.querySelector('form')
   form.addEventListener('keydown', e => { if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) form.requestSubmit() })
+  form.addEventListener('change', e => { if (e.target.name === 'remind' && e.target.value !== 'off') askPermission() })
   form.onsubmit = async e => {
     e.preventDefault()
     const f = new FormData(form)
     const patch = { notes: String(f.get('notes') || '').trim() || null }
     if (tracked) patch.status = f.get('status')
+    if (remindColumnReady()) patch.remind_days = remindValue(f, t.type)
     try { put(await updateTask(t.id, patch), rerender); m.close(); toast('Saved') } catch (err) { toast(err.message || 'Could not save') }
   }
 }

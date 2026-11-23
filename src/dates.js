@@ -23,10 +23,10 @@ export function addMonths(s, n) {
 
 export const daysBetween = (a, b) => Math.round((fromStr(b) - fromStr(a)) / 86400000)
 
-// Weeks start on Monday.
+// Weeks run Sunday → Saturday (Sunday leftmost in Week and Month).
 export function weekStart(s) {
   const d = fromStr(s)
-  d.setDate(d.getDate() - ((d.getDay() + 6) % 7))
+  d.setDate(d.getDate() - d.getDay())
   return toStr(d)
 }
 
