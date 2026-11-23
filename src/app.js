@@ -17,6 +17,11 @@ import { openEditor } from './editor.js'
 import { applyTheme } from './theme.js'
 import { initUpdateReload } from './swUpdate.js'
 import { exportCsv } from './exportCsv.js'
+import { playChime } from './sound.js'
+import { setUndoRender, undo, redo, undoIf, putTask, snapshot, nameOf, recordUpdate, recordNoteAdd, recordNoteDelete } from './undo.js'
+import { renderSummary, summaryTitle, moveSummary, sumMode, summaryFileName, retrySummary } from './views/summary.js'
+import { openReport } from './report.js'
+import { postLine } from './line.js'
 
 const root = document.getElementById('app')
 const PHONE = window.matchMedia('(max-width: 859px)')
@@ -107,11 +112,14 @@ const NAV = [
   { view: 'today', label: 'Today', icon: 'sun', key: '1' },
   { view: 'plan', label: 'Plan', icon: 'week', key: '2 / 3' },
   { view: 'lots', label: 'PV lots', icon: 'flask', key: '4' },
+  { view: 'summary', label: 'Summary', icon: 'chart', key: '5' },
   { view: 'settings', label: 'Settings', icon: 'settings' },
 ]
 const navOn = v => state.view === v || (v === 'plan' && isPlan(state.view))
 const TITLES = { today: 'Today', lots: 'PV lots', settings: 'Settings', search: 'Search' }
-const viewTitle = () => state.view === 'settings' && isPhone() ? 'More' : state.view === 'week' ? weekTitle() : state.view === 'month' ? monthTitle() : TITLES[state.view]
+const viewTitle = () => state.view === 'settings' && isPhone() ? 'More' : state.view === 'week' ? weekTitle() : state.view === 'month' ? monthTitle() : state.view === 'summary' ? summaryTitle() : TITLES[state.view]
+// Views with a period and back/forward arrows.
+const hasPeriod = () => isPlan(state.view) || state.view === 'summary'
 
 function content() {
   const phone = isPhone()
@@ -119,6 +127,7 @@ function content() {
     case 'week': return renderWeek({ isPhone: phone })
     case 'month': return renderMonth({ wide: !phone && state.prefs.collapsed })
     case 'lots': return renderLots()
+    case 'summary': return renderSummary({ rerender: render })
     case 'settings': return renderSettings({ isPhone: phone })
     case 'search': return renderSearch({ isPhone: phone })
     default: return renderToday()
@@ -128,14 +137,19 @@ function content() {
 const planSwitch = () => isPlan(state.view) ? `
   <div class="seg small plan-switch" role="radiogroup" aria-label="Plan">
     ${[['week', 'Week'], ['month', 'Month']].map(([v, l]) => `<button type="button" role="radio" aria-checked="${state.view === v}" class="${state.view === v ? 'on' : ''}" data-act="nav" data-view="${v}">${l}</button>`).join('')}
+  </div>` : state.view === 'summary' ? `
+  <div class="seg small plan-switch" role="radiogroup" aria-label="Summary period">
+    ${[['month', 'Month'], ['year', 'Year']].map(([v, l]) => `<button type="button" role="radio" aria-checked="${sumMode() === v}" class="${sumMode() === v ? 'on' : ''}" data-act="sum-mode" data-value="${v}">${l}</button>`).join('')}
   </div>` : ''
 
-const periodNav = () => isPlan(state.view) ? `
+const periodNav = () => hasPeriod() ? `
   <div class="period">
     <button class="icon-btn" data-act="prev" aria-label="Previous">${icon('left')}</button>
-    <button class="btn soft small" data-act="today">Today</button>
+    <button class="btn soft small" data-act="today">${state.view === 'summary' ? (sumMode() === 'year' ? 'This year' : 'This month') : 'Today'}</button>
     <button class="icon-btn" data-act="next" aria-label="Next">${icon('right')}</button>
     ${state.view === 'week' ? `<button class="icon-btn" data-act="print" title="Print or save this week as PDF" aria-label="Print week">${icon('printer', 18)}</button>` : ''}
+    ${state.view === 'summary' ? `<button class="icon-btn" data-act="print" title="Print or save this summary as PDF" aria-label="Print summary">${icon('printer', 18)}</button>
+      <button class="btn soft small report-btn" data-act="report" title="A Markdown report for a day or range">${icon('doc', 15)} Make report</button>` : ''}
   </div>` : ''
 
 const layerToggle = () => isPlan(state.view) ? `
@@ -166,7 +180,7 @@ function desktopShell() {
           ${NAV.map(n => `<button class="nav-item${navOn(n.view) ? ' on' : ''}" data-act="nav" data-view="${n.view}">${icon(n.icon, 18)}<span>${n.label}</span>${badge[n.view] ? `<b class="nav-badge${c.overdue && n.view === 'today' ? ' red' : ''}">${badge[n.view]}</b>` : ''}</button>`).join('')}
         </nav>
         <div class="sidebar-foot">
-          ${window.electronAPI?.widget ? `<button class="sync-btn" data-act="widget" title="Open the month widget on your desktop">${icon('pin', 16)}<span>Pin month to desktop</span></button>` : ''}
+          ${window.electronAPI?.widget ? `<button class="sync-btn" data-act="widget" title="Open the calendar widget on your desktop">${icon('pin', 16)}<span>Pin calendar to desktop</span></button>` : ''}
           ${syncButton(false)}<p class="version">v${__APP_VERSION__} · Alex Kim</p>
         </div>
       </aside>
@@ -194,19 +208,20 @@ function phoneShell() {
     { view: 'plan', label: 'Plan', icon: 'week', also: PLAN },
     { add: true },
     { view: 'lots', label: 'PV lots', icon: 'flask' },
-    { view: 'settings', label: 'More', icon: 'more', also: ['search'] },
+    { view: 'settings', label: 'More', icon: 'more', also: ['search', 'summary'] },
   ]
   return `
     <div class="shell phone">
       <header class="phone-top">
         ${state.view === 'today' ? `<div class="brand"><img class="logo" src="./favicon.svg" alt=""><span>WorkLog</span></div>` : `<h1>${esc(viewTitle())}</h1>`}
         <div class="phone-top-right">
-          ${isPlan(state.view) ? `<button class="icon-btn" data-act="prev" aria-label="Previous">${icon('left')}</button><button class="icon-btn" data-act="next" aria-label="Next">${icon('right')}</button>` : ''}
+          ${hasPeriod() ? `<button class="icon-btn" data-act="prev" aria-label="Previous">${icon('left')}</button><button class="icon-btn" data-act="next" aria-label="Next">${icon('right')}</button>` : ''}
           ${state.view !== 'search' ? `<button class="icon-btn" data-act="nav" data-view="search" aria-label="Search">${icon('search')}</button>` : ''}
           ${syncButton(true)}
         </div>
       </header>
       ${isPlan(state.view) ? `<div class="phone-sub">${planSwitch()}${layerToggle()}<button class="btn soft small" data-act="today">Today</button></div>` : ''}
+      ${state.view === 'summary' ? `<div class="phone-sub">${planSwitch()}<button class="btn soft small" data-act="report">${icon('doc', 15)} Report</button></div>` : ''}
       <main class="content view-${state.view}">${content()}</main>
       <nav class="tabbar">
         ${tabs.map(t => t.add
@@ -247,7 +262,8 @@ function setView(view) {
 }
 
 function move(dir) {
-  if (state.view === 'week') state.cursor = addDays(state.cursor, 7 * dir)
+  if (state.view === 'summary') moveSummary(dir)
+  else if (state.view === 'week') state.cursor = addDays(state.cursor, 7 * dir)
   else if (state.view === 'month') { state.cursor = addMonths(state.cursor, dir); state.selected = state.cursor.slice(0, 7) === today().slice(0, 7) ? today() : state.cursor }
   render()
 }
@@ -259,22 +275,21 @@ async function cycleStatus(id) {
   const t = state.tasks.find(x => x.id === id)
   if (!t || isProduction(t)) return
   const prev = t.status
+  const before = snapshot(t, { status: null }) // an auto-done step is 'pending' in the database
+  const wasAuto = t.auto_done
   // an auto-done plan step reopens as 'Doing' — 'To do' would just read as done again
   t.status = t.auto_done ? 'in_progress' : NEXT_STATUS[prev]
   delete t.auto_done
   render()
   try {
-    Object.assign(t, await updateTask(id, { status: t.status }))
+    const next = { status: t.status }
+    putTask(await updateTask(id, next))
     cacheData()
-    if (t.status === 'done') toast('Done ✓', { label: 'Undo', run: () => setStatus(id, prev) })
-  } catch (e) { t.status = prev; render(); toast(e.message) }
-}
-async function setStatus(id, status) {
-  const t = state.tasks.find(x => x.id === id)
-  if (!t) return
-  t.status = status
-  render()
-  try { Object.assign(t, await updateTask(id, { status })); render() } catch (e) { toast(e.message) }
+    render()
+    const label = { pending: 'To do', in_progress: 'Doing', done: 'Done', deferred: 'Later' }[next.status]
+    const entry = recordUpdate(`${nameOf(t)} → ${label}`, id, before, next)
+    if (next.status === 'done') toast('Done ✓', { label: 'Undo', run: () => undoIf(entry) })
+  } catch (e) { t.status = prev; if (wasAuto) t.auto_done = true; render(); toast(e.message) }
 }
 
 async function onClick(e) {
@@ -289,7 +304,11 @@ async function onClick(e) {
     case 'cycle': e.stopPropagation(); return cycleStatus(id)
     case 'prev': return move(-1)
     case 'next': return move(1)
-    case 'today': state.cursor = today(); state.selected = today(); return render()
+    case 'today': state.cursor = today(); state.selected = today(); state.sumCursor = today(); return render()
+    case 'sum-mode': savePrefs({ sumMode: value }); return render()
+    case 'sum-month': savePrefs({ sumMode: 'month' }); state.sumCursor = date; return render()
+    case 'sum-retry': retrySummary(); return render()
+    case 'report': return openReport()
     case 'select':
       state.selected = date
       // sidebars hidden: no day panel on the page, so the day opens as a popup
@@ -300,6 +319,12 @@ async function onClick(e) {
       return
     case 'day': state.view = 'month'; state.cursor = date; state.selected = date; return render()
     case 'layer': savePrefs({ production: value }); return render()
+    case 'line': savePrefs({ line: value === 'on' }); return render()
+    case 'test-line':
+      el.disabled = true
+      try { await postLine('WorkLog\nLINE is connected — reminders and plan changes will arrive here.'); toast('Sent — check LINE') } catch (err) { toast(err.message) }
+      el.disabled = false
+      return
     case 'dept': {
       const h = new Set(state.prefs.hiddenDepts)
       h.has(value) ? h.delete(value) : h.add(value)
@@ -308,11 +333,13 @@ async function onClick(e) {
     }
     case 'theme': savePrefs({ theme: value }); applyTheme(value); return render()
     case 'collapse': return toggleCollapsed()
-    case 'print': return printWeek()
+    case 'print': return printView()
     case 'clear-changes': clearChanges(); return render()
     case 'change-alerts': savePrefs({ changeAlerts: value === 'on' }); if (value === 'on') askPermission(); return render()
     case 'widget': return window.electronAPI?.widget?.toggle()
     case 'pv-remind': savePrefs({ pvRemind: value === 'off' ? null : Number(value) }); if (value !== 'off') askPermission(); return render()
+    case 'sound': savePrefs({ sound: value === 'on' }); if (value === 'on') playChime({ force: true }); return render()
+    case 'test-sound': return playChime({ force: true })
     case 'test-notify':
       if (!(await askPermission())) return toast(canNotify() ? 'Notifications are blocked — allow them for WorkLog first' : 'Notifications aren’t available here')
       testNotification()
@@ -322,7 +349,11 @@ async function onClick(e) {
     case 'signout': await signOut(); return
     case 'update': return window.electronAPI?.checkForUpdates()
     case 'del-note': {
-      try { await deleteNote(id); state.notes = state.notes.filter(n => n.id !== id); cacheData(); refreshDay() } catch (err) { toast(err.message) }
+      const note = state.notes.find(n => n.id === id)
+      try {
+        await deleteNote(id); state.notes = state.notes.filter(n => n.id !== id); cacheData(); refreshDay()
+        if (note) { const entry = recordNoteDelete(note); toast('Note deleted', { label: 'Undo', run: () => undoIf(entry) }) }
+      } catch (err) { toast(err.message) }
       return
     }
   }
@@ -331,10 +362,11 @@ root.addEventListener('click', onClick)
 
 // Desktop app: straight to a PDF (save dialog, then it opens). Browser: the
 // print dialog, where "Save as PDF" does the same.
-async function printWeek() {
+async function printView() {
+  const summary = state.view === 'summary'
   if (window.electronAPI?.printPdf) {
     try {
-      const file = await window.electronAPI.printPdf(printFileName())
+      const file = await window.electronAPI.printPdf(summary ? { name: summaryFileName(), landscape: false } : printFileName())
       if (file) toast('Saved PDF')
     } catch (e) { toast(e.message || 'Could not make the PDF') }
   } else window.print()
@@ -370,7 +402,9 @@ async function onSubmit(e) {
   if (!text) return
   input.disabled = true
   try {
-    state.notes.push(await addNote(form.dataset.date, text))
+    const note = await addNote(form.dataset.date, text)
+    state.notes.push(note)
+    recordNoteAdd(note)
     cacheData()
     refreshDay()
     ;(document.querySelector(`.overlay .note-add[data-date="${form.dataset.date}"] input`) ||
@@ -403,14 +437,26 @@ root.addEventListener('input', e => {
 })
 
 // Desktop shortcuts.
+// Text-entry fields keep the browser's own undo; checkboxes and radios don't
+// have one, so Ctrl+Z there undoes the last action instead.
+const textEntry = el => !!el?.closest?.('textarea, [contenteditable], select') ||
+  (el?.tagName === 'INPUT' && !['checkbox', 'radio', 'button', 'submit', 'reset'].includes(el.type))
+
 document.addEventListener('keydown', e => {
   if (e.key === 'Escape') { if (closeTopModal()) return; if (state.view === 'search') { state.search = ''; setView('today') } return }
+  const k = e.key.toLowerCase()
+  if ((e.ctrlKey || e.metaKey) && !e.altKey && (k === 'z' || k === 'y') && state.member) {
+    if (textEntry(e.target)) return
+    e.preventDefault()
+    if (k === 'y' || e.shiftKey) redo(); else undo()
+    return
+  }
   const typing = e.target.closest('input, textarea, select, [contenteditable]')
   if (typing || modalOpen() || e.ctrlKey || e.metaKey || e.altKey || !state.member) return
   const keys = {
     n: () => openEditor({ date: state.view === 'month' ? state.selected : today() }, render),
     t: () => { state.cursor = today(); state.selected = today(); render() },
-    '1': () => setView('today'), '2': () => setView('week'), '3': () => setView('month'), '4': () => setView('lots'),
+    '1': () => setView('today'), '2': () => setView('week'), '3': () => setView('month'), '4': () => setView('lots'), '5': () => setView('summary'),
     '/': () => root.querySelector('#search-input')?.focus() ?? setView('search'),
     '\\': () => { if (!isPhone()) toggleCollapsed() },
     ArrowLeft: () => move(-1), ArrowRight: () => move(1),
@@ -423,6 +469,7 @@ document.addEventListener('keydown', e => {
 for (const ev of ['gesturestart', 'gesturechange']) document.addEventListener(ev, e => e.preventDefault(), { passive: false })
 
 initUpdateReload({ isBusy: modalOpen })
+setUndoRender(render)
 boot()
 
 // Keep "Synced 5m ago" honest on a window left open all day.

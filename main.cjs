@@ -38,6 +38,9 @@ function createWindow() {
       contextIsolation: true,
       nodeIntegration: false,
       sandbox: true,
+      // the reminder chime plays from a window that sits hidden in the tray
+      autoplayPolicy: 'no-user-gesture-required',
+      backgroundThrottling: false,
     },
   })
 
@@ -96,8 +99,9 @@ function createWidget() {
   const saved = loadWidgetState()
   widgetWindow = new BrowserWindow({
     ...widgetBounds(saved),
-    minWidth: 300,
-    minHeight: 320,
+    // small enough to sit like a taskbar hover thumbnail (pills become dots)
+    minWidth: 220,
+    minHeight: 150,
     frame: false,
     resizable: true,
     skipTaskbar: true,
@@ -105,7 +109,7 @@ function createWidget() {
     minimizable: false,
     maximizable: false,
     fullscreenable: false,
-    title: 'WorkLog month',
+    title: 'WorkLog calendar',
     backgroundColor: '#0f0e17',
     show: false,
     icon: path.join(__dirname, 'assets', 'icon.ico'),
@@ -145,14 +149,17 @@ ipcMain.handle('widget:open-main', (_e, msg) => {
   if (msg && (msg.date || msg.id)) focusAndNavigate(msg)
   else if (mainWindow) { if (mainWindow.isMinimized()) mainWindow.restore(); mainWindow.show(); mainWindow.focus() }
 })
-// Print the week: render the page's print CSS to an A4 landscape PDF, ask
-// where to save it, then open it.
-ipcMain.handle('print:pdf', async (e, name) => {
+// Print the current view: render the page's print CSS to an A4 PDF (the week
+// landscape, the R&D Summary portrait), ask where to save it, then open it.
+// The renderer sends a file name, or { name, landscape }.
+ipcMain.handle('print:pdf', async (e, arg) => {
   const win = BrowserWindow.fromWebContents(e.sender)
-  const pdf = await e.sender.printToPDF({ landscape: true, pageSize: 'A4', printBackground: true, scale: 0.82, margins: { marginType: 'custom', top: 0.35, bottom: 0.35, left: 0.35, right: 0.35 } })
+  const opts = typeof arg === 'object' && arg ? arg : { name: arg }
+  const landscape = opts.landscape !== false
+  const pdf = await e.sender.printToPDF({ landscape, pageSize: 'A4', printBackground: true, scale: landscape ? 0.82 : 0.9, margins: { marginType: 'custom', top: 0.4, bottom: 0.4, left: 0.4, right: 0.4 } })
   const { canceled, filePath } = await dialog.showSaveDialog(win, {
-    title: 'Save week as PDF',
-    defaultPath: path.join(app.getPath('documents'), String(name || 'WorkLog week.pdf').replace(/[\\/:*?"<>|]/g, '-')),
+    title: 'Save as PDF',
+    defaultPath: path.join(app.getPath('documents'), String(opts.name || 'WorkLog.pdf').replace(/[\\/:*?"<>|]/g, '-')),
     filters: [{ name: 'PDF', extensions: ['pdf'] }],
   })
   if (canceled || !filePath) return null
@@ -172,7 +179,7 @@ ipcMain.handle('app:focus', () => {
 function rebuildTrayMenu() {
   tray.setContextMenu(Menu.buildFromTemplate([
     { label: 'Open WorkLog', click: () => { mainWindow.show(); mainWindow.focus() } },
-    { label: widgetWindow ? 'Hide month widget' : 'Show month widget', click: () => (widgetWindow ? closeWidget() : createWidget()) },
+    { label: widgetWindow ? 'Hide calendar widget' : 'Show calendar widget', click: () => (widgetWindow ? closeWidget() : createWidget()) },
     { type: 'separator' },
     updateDownloaded
       ? { label: 'Restart to Install Update', click: () => { isQuitting = true; autoUpdater.quitAndInstall() } }

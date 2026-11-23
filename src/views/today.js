@@ -4,6 +4,8 @@ import { taskRow, productionBlock, empty, noteList } from '../components.js'
 import { esc, icon } from '../ui.js'
 import { upcomingReminders, whenLabel } from '../reminders.js'
 import { loadChanges, changeText } from '../planChanges.js'
+import { upcomingClashes } from '../clashes.js'
+import { weekday, shortDate } from '../dates.js'
 
 function greeting() {
   const h = new Date().getHours()
@@ -67,6 +69,7 @@ export function renderToday() {
             state.prefs.production === 'all'
               ? (production.length ? productionBlock(production) : empty('No production on the plan today.', '🏭'))
               : `<p class="muted">Production layer is ${state.prefs.production === 'pv' ? 'set to PV + R&D line only' : 'hidden'}. <button class="link" data-act="layer" data-value="all">Show all</button></p>`)}
+          ${clashList()}
           ${changeList()}
           ${section(`${icon('bell', 18)} Reminders`, reminderList(), { action: `<button class="link small" data-act="nav" data-view="settings">Settings</button>` })}
           ${section(`${icon('note', 18)} Notes`, noteList(notes, t))}
@@ -92,6 +95,17 @@ function reminderList() {
       <span class="rem-what">${esc(task.source === 'sheet' ? (task.product_name || task.title) : task.title)}</span>
       <span class="rem-meta">${esc([task.step, relDay(startOf(task))].filter(Boolean).join(' · '))}${r.auto ? ' · PV' : ''}</span>
     </button>`).join('')}</div>`
+}
+
+// Days in the next two weeks where R&D is needed in two places (clashes.js).
+function clashList() {
+  const days = upcomingClashes(14)
+  if (!days.length) return ''
+  return section(`${icon('alert', 18)} Clashes ahead`, `<div class="clashes">${days.flatMap(({ d, clashes }) => clashes.map(c => `
+    <button type="button" class="clash-line" data-act="day" data-date="${d}">
+      <span class="cl-day">${esc(relDay(d) === 'Today' || relDay(d) === 'Tomorrow' ? relDay(d) : `${weekday(d)} ${shortDate(d)}`)}</span>
+      <span class="cl-what">${esc(c.text)}</span>
+    </button>`)).join('')}</div>`, { tone: 'tone-amber' })
 }
 
 // PV / R&D-line steps the sheet moved since you last looked.

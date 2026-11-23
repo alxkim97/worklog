@@ -2,6 +2,7 @@ import { state, dayContent } from '../store.js'
 import { today, addDays, weekStart, weekday, dayNum, isWeekend, shortDate, fromStr } from '../dates.js'
 import { taskRow, productionBlock, deptColor } from '../components.js'
 import { esc, icon } from '../ui.js'
+import { clashTitle } from '../clashes.js'
 
 // "WorkLog Week 22-28 Nov 2026 (R.0_261123).pdf" — authored-file naming.
 export function printFileName() {
@@ -38,12 +39,14 @@ export function renderWeek({ isPhone } = {}) {
         const { mine, production, notes } = content[i]
         const weekend = isWeekend(d)
         const emptyDay = isEmpty(content[i])
+        const clash = clashTitle(d)
         return `
-          <section class="wday${d === t ? ' is-today' : ''}${weekend ? ' weekend' : ''}${emptyDay ? ' empty-day' : ''}">
+          <section class="wday${d === t ? ' is-today' : ''}${weekend ? ' weekend' : ''}${emptyDay ? ' empty-day' : ''}${clash ? ' has-clash' : ''}">
             <header class="wday-head" data-act="day" data-date="${d}">
               <span class="wd">${esc(weekday(d))}</span>
               <span class="dn">${dayNum(d)}</span>
               <span class="wday-month">${esc(fromStr(d).toLocaleString('en-GB', { month: 'short' }))}</span>
+              ${clash ? `<span class="clash-badge" title="Clash — ${esc(clash)}" aria-label="Clash: ${esc(clash)}">!</span>` : ''}
               <button type="button" class="icon-btn small add-day" data-act="new" data-date="${d}" aria-label="Add on ${esc(shortDate(d))}">${icon('plus', 16)}</button>
             </header>
             <div class="wday-body">

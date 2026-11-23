@@ -43,7 +43,7 @@ function build() {
   // PV lots: one product through its steps over a couple of weeks.
   const lots = [
     { name: 'BANOCINORAL 50×1g (04) PV1', lot: '101', dept: 'tablets', start: -8, steps: ['Mix', 'Tab', 'Coat', 'Blister'] },
-    { name: 'Machto Gel PET 240mL PV1', lot: '114', dept: 'tablets', start: 2, steps: ['Mix', 'Tab', 'Blister'] },
+    { name: 'Machto Gel PET 240mL PV1', lot: '114', dept: 'tablets', start: 1, steps: ['Mix', 'Tab', 'Blister'] },
     { name: 'Polycin ointment 10 g PV2', lot: '205', dept: 'cream', start: -3, steps: ['Mix', 'Bottle'] },
   ]
   for (const l of lots) {
@@ -74,8 +74,32 @@ function build() {
       id: id(), source: 'manual', type: m.type, status: m.status || 'pending', priority: m.priority || 'normal',
       title: m.title, section: 'rd', due_date: m.due == null ? null : addDays(t, m.due), start_date: m.start != null ? addDays(t, m.start) : null,
       lot_number: m.lot || null, remind_days: m.remind ?? null, notes: m.type === 'rd_experiment' ? 'Use apparatus 2, 50 rpm.' : null, created_at: now(), updated_at: now(),
+      done_at: m.status === 'done' ? now() : null,
     })
   }
+  // Finished history for the R&D Summary (months back, past the 120-day window too).
+  const history = [
+    ['Dissolution profile — Ramol 500 f-c', 'rd_experiment', -3], ['Update SOP-RD-011 sampling', 'document', -5], ['Order reference standards', 'task', -6],
+    ['Coating trial T-05', 'rd_experiment', -9], ['PV1 protocol — Machto Gel', 'document', -12], ['R&D weekly sync', 'meeting', -7], ['R&D weekly sync', 'meeting', -14],
+    ['Hardness study Zarium 10 mg', 'rd_experiment', -18], ['Calibrate dissolution bath', 'task', -20], ['Stability report Q3', 'document', -33],
+    ['Granulation end-point trial', 'rd_experiment', -40], ['PV2 report — Banocin', 'document', -47], ['Supplier CoA review', 'task', -52],
+    ['Taste-masking trial Hashi', 'rd_experiment', -75], ['Method transfer HPLC', 'document', -96], ['Excipient compatibility', 'rd_experiment', -130],
+    ['Annual product review input', 'document', -160], ['Scale-up trial Polycin', 'rd_experiment', -200], ['R&D budget plan', 'task', -250],
+  ]
+  for (const [title, type, d] of history) {
+    const day = addDays(t, d)
+    tasks.push({ id: id(), source: 'manual', type, status: 'done', priority: 'normal', title, section: 'rd', due_date: day, start_date: null,
+      lot_number: null, notes: null, created_at: now(), updated_at: now(), done_at: `${day}T10:00:00` })
+  }
+  const oldLots = [
+    { name: 'Zarium 10 mg dispersible PV1', lot: '088', dept: 'tablets', start: -64, steps: ['Mix', 'Tab', 'Blister'] },
+    { name: 'Hashi syrup 60 mL PV3', lot: '072', dept: 'liquid', start: -150, steps: ['Mix', 'Fill Liquid', 'Bottle'] },
+  ]
+  for (const l of oldLots) l.steps.forEach((step, i) => {
+    const date = addDays(t, l.start + i * 2)
+    tasks.push({ id: id(), source: 'sheet', type: 'pv_lot', status: 'done', auto_done: true, priority: 'normal', title: `[${step}] ${l.name}`, product_name: l.name,
+      section: l.dept, step, due_date: date, lot_number: l.lot, sheet_ref: `${date}|${l.dept}|${step}|${l.name}`, sheet_path: `${l.dept} › ${step}`, notes: null, created_at: now(), updated_at: now() })
+  })
   return tasks
 }
 
@@ -97,9 +121,23 @@ export const signIn = async () => {}
 export const signUp = async () => ({ session })
 export const signOut = async () => location.reload()
 export const isMember = async () => true
-export const fetchTasks = async () => { await wait(); return copy(tasks) }
+// same window as the real fetch: 120 days back, undated, and anything open
+export const fetchTasks = async () => { await wait(); const since = addDays(today(), -120); return copy(tasks.filter(x => !x.due_date || x.due_date >= since || (x.source === 'manual' && ['pending', 'in_progress'].includes(x.status)))) }
 export async function createTask(t) { await wait(); const row = { id: id(), source: 'manual', created_at: now(), updated_at: now(), ...t }; tasks.push(row); return copy(row) }
-export async function updateTask(rowId, patch) { await wait(); const r = tasks.find(x => x.id === rowId); Object.assign(r, patch, { updated_at: now() }); return copy(r) }
+export async function updateTask(rowId, patch) {
+  await wait()
+  const r = tasks.find(x => x.id === rowId)
+  // mirrors the worklog_touch trigger
+  if (patch.status === 'done' && r.status !== 'done') r.done_at = now()
+  if (patch.status && patch.status !== 'done') r.done_at = null
+  Object.assign(r, patch, { updated_at: now() })
+  return copy(r)
+}
+export const historyStart = () => addDays(today(), -120)
+export async function fetchRange(from, to) {
+  await wait(300)
+  return copy(tasks.filter(x => (x.due_date && x.due_date >= from && x.due_date <= to) || (x.done_at && x.done_at.slice(0, 10) >= addDays(from, -1) && x.done_at.slice(0, 10) <= addDays(to, 1))))
+}
 export async function deleteTask(rowId) { await wait(); tasks = tasks.filter(x => x.id !== rowId) }
 export async function restoreTask(row) { await wait(); tasks.push(copy(row)); return copy(row) }
 export const fetchNotes = async () => copy(notes)

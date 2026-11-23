@@ -2,7 +2,8 @@ import { openModal, confirmBox, toast, esc, icon } from './ui.js'
 import { TYPES, STATUSES, PRIORITIES, deptColor, deptLabel } from './components.js'
 import { DEPTS } from '../lib/depts.js'
 import { state, isSheet, isProduction } from './store.js'
-import { createTask, updateTask, deleteTask, restoreTask, remindColumnReady, checklistColumnReady } from './data.js'
+import { createTask, updateTask, deleteTask, remindColumnReady, checklistColumnReady } from './data.js'
+import { putTask, dropTask, snapshot, nameOf, recordUpdate, recordCreate, recordDelete, undoIf } from './undo.js'
 import { checklistFor } from './checklists.js'
 import { REMIND_OPTIONS, askPermission } from './reminders.js'
 import { today, longDate } from './dates.js'
@@ -52,30 +53,43 @@ function checklistField(t) {
 function wireChecklist(form, t, rerender) {
   const box = form.querySelector('[data-cl-box]')
   if (!box) return
-  let items = checklistFor(t).map(i => ({ ...i }))
+  let cur = t
+  let items = checklistFor(cur).map(i => ({ ...i }))
   const draw = () => {
     box.querySelector('.cl-list').innerHTML = checklistItems(items)
     box.querySelector('.cl-count').textContent = `${items.filter(i => i.done).length}/${items.length}`
   }
-  const save = async () => {
+  // label: what the undo toast says ("tick …", "remove …", "add …")
+  const save = async label => {
+    const prev = snapshot(cur, { checklist: null })
+    const next = { checklist: items.map(i => ({ ...i })) }
     draw()
     try {
-      const row = await updateTask(t.id, { checklist: items })
-      Object.assign(t, row)
-      put(t, rerender)
+      const row = await updateTask(cur.id, next)
+      put(row, rerender)
+      recordUpdate(`checklist ${label} on ${nameOf(row)}`, row.id, prev, next)
     } catch (err) { toast(err.message || 'Could not save the checklist') }
   }
+  // Undo/redo changed this task while the dialog is open: show the new list.
+  const onTask = e => {
+    if (!box.isConnected) return window.removeEventListener('wl:task', onTask)
+    if (e.detail !== cur.id) return
+    cur = state.tasks.find(x => x.id === cur.id) || cur
+    items = (checklistFor(cur) || []).map(i => ({ ...i }))
+    draw()
+  }
+  window.addEventListener('wl:task', onTask)
   box.addEventListener('change', e => {
     const i = e.target.dataset.cl
     if (i == null) return
     items[i].done = e.target.checked
-    save()
+    save(`${e.target.checked ? 'tick' : 'untick'} “${items[i].t}”`)
   })
   box.addEventListener('click', e => {
     const b = e.target.closest('[data-cl-del]')
     if (!b) return
-    items.splice(Number(b.dataset.clDel), 1)
-    save()
+    const [gone] = items.splice(Number(b.dataset.clDel), 1)
+    save(`remove “${gone.t}”`)
   })
   box.querySelector('.cl-add').addEventListener('keydown', e => {
     if (e.key !== 'Enter') return
@@ -84,14 +98,13 @@ function wireChecklist(form, t, rerender) {
     if (!text) return
     items.push({ t: text, done: false })
     e.target.value = ''
-    save()
+    save(`add “${text}”`)
   })
 }
 
 // Upserts the edited row into state.tasks and redraws.
 function put(row, rerender) {
-  const i = state.tasks.findIndex(t => t.id === row.id)
-  if (i === -1) state.tasks.push(row); else state.tasks[i] = row
+  putTask(row)
   rerender()
 }
 
@@ -180,9 +193,12 @@ export function openEditor({ id, date } = {}, rerender) {
     const btn = form.querySelector('[type=submit]')
     btn.disabled = true
     try {
+      const prev = t && snapshot(t, patch)
       const row = t ? await updateTask(t.id, patch) : await createTask(patch)
       put(row, rerender)
       m.close()
+      if (t) recordUpdate(`edit to ${nameOf(row)}`, row.id, prev, patch)
+      else recordCreate(`new task ${nameOf(row)}`, row)
       toast(t ? 'Saved' : 'Added ✓')
     } catch (err) { btn.disabled = false; toast(err.message || 'Could not save') }
   }
@@ -190,11 +206,13 @@ export function openEditor({ id, date } = {}, rerender) {
   form.querySelector('[data-delete]')?.addEventListener('click', async () => {
     if (!(await confirmBox(`Delete “${t.title}”?`))) return
     try {
+      const row = { ...t }
       await deleteTask(t.id)
-      state.tasks = state.tasks.filter(x => x.id !== t.id)
+      dropTask(t.id)
       m.close()
       rerender()
-      toast('Deleted', { label: 'Undo', run: async () => { try { put(await restoreTask(t), rerender) } catch (err) { toast(err.message) } } })
+      const entry = recordDelete(`delete ${nameOf(row)}`, row)
+      toast('Deleted', { label: 'Undo', run: () => undoIf(entry) })
     } catch (err) { toast(err.message || 'Could not delete') }
   })
 }
@@ -242,6 +260,12 @@ function openSheetTask(t, rerender) {
     const patch = { notes: String(f.get('notes') || '').trim() || null }
     if (tracked) patch.status = f.get('status')
     if (remindColumnReady()) patch.remind_days = remindValue(f, t.type)
-    try { put(await updateTask(t.id, patch), rerender); m.close(); toast('Saved') } catch (err) { toast(err.message || 'Could not save') }
+    const cur = state.tasks.find(x => x.id === t.id) || t // checklist ticks may have replaced the row
+    const prev = snapshot(cur, patch)
+    try {
+      const row = await updateTask(t.id, patch)
+      put(row, rerender); m.close(); toast('Saved')
+      if (JSON.stringify(prev) !== JSON.stringify(snapshot(row, patch))) recordUpdate(`edit to ${nameOf(row)}`, row.id, prev, patch)
+    } catch (err) { toast(err.message || 'Could not save') }
   }
 }

@@ -52,7 +52,7 @@ export function taskRow(t, { showDate = true } = {}) {
   }
   if (isSheet(t)) meta.push(t.step ? `${deptLabel(t.section)} · ${t.step}` : deptLabel(t.section))
   else if (type && t.type !== 'task') meta.push(type.label)
-  if (t.lot_number && !isSheet(t)) meta.push(`Lot ${esc(t.lot_number)}`)
+  if (t.lot_number && !isSheet(t)) meta.push(`Lot ${t.lot_number}`)
   const flags = [
     t.priority === 'critical' ? '<span class="flag urgent">Urgent</span>' : t.priority === 'high' ? '<span class="flag high">High</span>' : '',
     isOverdue(t) ? '<span class="flag late">Late</span>' : '',
@@ -66,7 +66,7 @@ export function taskRow(t, { showDate = true } = {}) {
       ${statusButton(t)}
       <div class="task-main">
         <div class="task-title">${esc(isSheet(t) ? (t.product_name || t.title) : t.title)}</div>
-        ${meta.length ? `<div class="task-meta">${meta.map(esc).join(' · ')}</div>` : ''}
+        ${meta.length ? `<div class="task-meta">${meta.map(m => `<span class="mp">${esc(m)}</span>`).join(' · ')}</div>` : ''}
       </div>
       <div class="task-flags">${flags}</div>
     </div>`

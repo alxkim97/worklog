@@ -6,6 +6,8 @@
 import { state, isOpen, startOf } from './store.js'
 import { today, addDays, fromStr, relDay, toStr, shortDate } from './dates.js'
 import { deptLabel } from './components.js'
+import { playChime } from './sound.js'
+import { queueLine } from './line.js'
 
 export const REMIND_OPTIONS = [
   { key: 'off', days: -1, label: 'Off' },
@@ -81,10 +83,15 @@ export async function askPermission() {
   return (await Notification.requestPermission()) === 'granted'
 }
 
-export function notify({ title, body, tag }, onClick) {
+// Reminders and plan changes: a system notification + chime here, and (if
+// switched on, desktop app only) the same text to LINE — even when Windows
+// notifications are blocked. line: false for the Settings test.
+export function notify({ title, body, tag, line = true }, onClick) {
+  if (line) queueLine(`${title}\n${body}`)
   if (!canNotify() || Notification.permission !== 'granted') return false
   const n = new Notification(title, { body, tag, icon: './icon-192.png' })
   n.onclick = () => { window.focus(); window.electronAPI?.focusMain?.(); onClick?.() }
+  playChime()
   return true
 }
 
@@ -110,7 +117,7 @@ export function checkReminders(onOpen) {
 }
 
 export function testNotification() {
-  return notify({ title: 'WorkLog reminders are on', body: `PV and R&D reminders will appear like this at ${state.prefs.remindTime}.`, tag: 'test' })
+  return notify({ title: 'WorkLog reminders are on', body: `PV and R&D reminders will appear like this at ${state.prefs.remindTime}.`, tag: 'test', line: false })
 }
 
 export function startReminders(onOpen) {

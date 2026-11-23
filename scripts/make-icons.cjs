@@ -18,16 +18,36 @@ async function render(win, markup, size) {
   return win.webContents.capturePage({ x: 0, y: 0, width: size, height: size })
 }
 
-function ico(pngs) {
-  const sizes = Object.keys(pngs).map(Number).sort((a, b) => a - b)
+// A classic 32-bit DIB entry: BITMAPINFOHEADER (height doubled for the
+// AND mask), bottom-up BGRA rows, then a 1-bit AND mask (all 0: alpha rules).
+// Windows' own icons use these below 256 px; PNG-compressed small entries
+// can render blank on the taskbar, so PNG is kept for 256 only.
+function dib(img, s) {
+  const bgra = img.toBitmap() // BGRA, top-down, premultiplied (Skia)
+  for (let i = 0; i < bgra.length; i += 4) {
+    const a = bgra[i + 3]
+    if (a > 0 && a < 255) for (let c = 0; c < 3; c++) bgra[i + c] = Math.min(255, Math.round(bgra[i + c] * 255 / a))
+  }
+  const head = Buffer.alloc(40)
+  head.writeUInt32LE(40, 0); head.writeInt32LE(s, 4); head.writeInt32LE(s * 2, 8)
+  head.writeUInt16LE(1, 12); head.writeUInt16LE(32, 14)
+  head.writeUInt32LE(s * s * 4, 20)
+  const px = Buffer.alloc(s * s * 4)
+  for (let y = 0; y < s; y++) bgra.copy(px, (s - 1 - y) * s * 4, y * s * 4, (y + 1) * s * 4)
+  const maskRow = Math.ceil(s / 32) * 4
+  return Buffer.concat([head, px, Buffer.alloc(maskRow * s)])
+}
+
+function ico(entries) {
+  const sizes = Object.keys(entries).map(Number).sort((a, b) => a - b)
   const header = Buffer.alloc(6); header.writeUInt16LE(1, 2); header.writeUInt16LE(sizes.length, 4)
   let offset = 6 + 16 * sizes.length
   const dir = [], data = []
   for (const s of sizes) {
     const e = Buffer.alloc(16)
     e.writeUInt8(s >= 256 ? 0 : s, 0); e.writeUInt8(s >= 256 ? 0 : s, 1)
-    e.writeUInt16LE(1, 4); e.writeUInt16LE(32, 6); e.writeUInt32LE(pngs[s].length, 8); e.writeUInt32LE(offset, 12)
-    offset += pngs[s].length; dir.push(e); data.push(pngs[s])
+    e.writeUInt16LE(1, 4); e.writeUInt16LE(32, 6); e.writeUInt32LE(entries[s].length, 8); e.writeUInt32LE(offset, 12)
+    offset += entries[s].length; dir.push(e); data.push(entries[s])
   }
   return Buffer.concat([header, ...dir, ...data])
 }
@@ -42,10 +62,13 @@ app.whenReady().then(async () => {
   const full = await render(win, bleed, 512)
   out('public/icon-maskable-512.png', full)
   out('public/apple-touch-icon.png', full.resize({ width: 180, height: 180, quality: 'best' }))
-  const pngs = {}
-  for (const s of [16, 24, 32, 48, 64, 128, 256]) pngs[s] = big.resize({ width: s, height: s, quality: 'best' }).toPNG()
+  const entries = {}
+  for (const s of [16, 24, 32, 48, 64, 128, 256]) {
+    const img = big.resize({ width: s, height: s, quality: 'best' })
+    entries[s] = s >= 256 ? img.toPNG() : dib(img, s)
+  }
   fs.mkdirSync(path.join(root, 'assets'), { recursive: true })
-  fs.writeFileSync(path.join(root, 'assets', 'icon.ico'), ico(pngs))
+  fs.writeFileSync(path.join(root, 'assets', 'icon.ico'), ico(entries))
   console.log('wrote assets/icon.ico')
   app.quit()
 })

@@ -2,6 +2,7 @@ import { state, dayContent, groupByDept } from '../store.js'
 import { today, addDays, weekStart, monthStart, dayNum, monthYear, longDate, isWeekend } from '../dates.js'
 import { taskRow, productionBlock, noteList, empty, deptColor } from '../components.js'
 import { esc, icon } from '../ui.js'
+import { clashTitle, dayClashes } from '../clashes.js'
 
 export const monthTitle = () => monthYear(state.cursor)
 
@@ -34,10 +35,11 @@ export function renderMonth({ wide = false } = {}) {
 function cell(d, month, t) {
   const { mine, production, notes } = dayContent(d)
   const groups = groupByDept(production)
-  const cls = ['mg-day', d.slice(0, 7) !== month && 'out', d === t && 'is-today', d === state.selected && 'sel', isWeekend(d) && 'weekend'].filter(Boolean).join(' ')
+  const clash = clashTitle(d)
+  const cls = ['mg-day', d.slice(0, 7) !== month && 'out', d === t && 'is-today', d === state.selected && 'sel', isWeekend(d) && 'weekend', clash && 'has-clash'].filter(Boolean).join(' ')
   return `
-    <div class="${cls}" data-act="select" data-date="${d}" role="button" tabindex="0" aria-label="${esc(longDate(d))}">
-      <div class="mg-num">${dayNum(d)}${notes.length ? `<span class="mg-note">${icon('note', 11)}</span>` : ''}</div>
+    <div class="${cls}" data-act="select" data-date="${d}" role="button" tabindex="0" aria-label="${esc(longDate(d))}${clash ? ', clash' : ''}">
+      <div class="mg-num">${dayNum(d)}${notes.length ? `<span class="mg-note">${icon('note', 11)}</span>` : ''}${clash ? `<span class="clash-badge" title="Clash — ${esc(clash)}">!</span>` : ''}</div>
       <div class="mg-pills">
         ${mine.slice(0, maxPills).map(x => `<div class="pill s-${x.status}" style="--c:${deptColor(x.section || 'rd')}">${esc(x.product_name && x.source === 'sheet' ? x.product_name : x.title)}</div>`).join('')}
         ${mine.length > maxPills ? `<div class="pill more">+${mine.length - maxPills} more</div>` : ''}
@@ -61,6 +63,7 @@ export function dayPanel(d) {
       </div>
       <button class="btn soft small" data-act="new" data-date="${d}">${icon('plus', 16)} Add</button>
     </header>
+    ${dayClashes(d).map(c => `<p class="clash-note">${icon('alert', 15)} <b>Clash:</b> ${esc(c.text)}</p>`).join('')}
     ${mine.length ? `<div class="list">${mine.map(x => taskRow(x, { showDate: false })).join('')}</div>` : empty('Nothing of yours on this day.', '🌿')}
     ${production.length ? `<h3 class="sub">${icon('factory', 16)} Production</h3>${productionBlock(production)}` : ''}
     <h3 class="sub">${icon('note', 16)} Notes</h3>

@@ -186,3 +186,17 @@ alter table work_tasks add column if not exists checklist jsonb;
 | `CRON_SECRET` | Any long random string |
 
 Share the production sheet with the service account's `client_email` as **Viewer**.
+
+## LINE messages (v2.4, `api/line-push.js`)
+
+The desktop app relays reminders and plan changes to one LINE user through
+the Push API (never Broadcast — the Official Account is shared with other
+apps' friends). No SQL needed; two more Vercel variables:
+
+| Name | Value |
+|---|---|
+| `LINE_CHANNEL_TOKEN` | LINE Developers → the channel → Messaging API → Channel access token (long-lived) |
+| `LINE_USER_ID` | LINE Developers → the channel → Basic settings → **Your user ID** (starts with `U`) |
+
+You must have added the Official Account as a friend. Redeploy after adding
+the variables, then in the desktop app: Settings → Reminders → LINE → Send a test.

@@ -70,6 +70,29 @@ export async function fetchTasks() {
   return out.map(auto)
 }
 
+// The loaded window starts here; anything older is fetched on demand.
+export const historyStart = () => addDays(today(), -HISTORY_DAYS)
+
+// Summary / report for a period that reaches past the loaded window: plan
+// rows dated in it, plus your tasks marked done in it. done_at is UTC, so
+// the window is padded a day each side (the summary filters by local day).
+export async function fetchRange(from, to) {
+  const out = []
+  const lo = addDays(from, -1), hi = addDays(to, 1)
+  for (let start = 0; ; start += 1000) {
+    const { data, error } = await supa.from('work_tasks').select(cols())
+      .is('sheet_removed_at', null)
+      .or(`and(due_date.gte.${from},due_date.lte.${to}),and(done_at.gte.${lo},done_at.lte.${hi})`)
+      .order('id')
+      .range(start, start + 999)
+    if (error && dropMissing(error)) return fetchRange(from, to)
+    if (error) throw error
+    out.push(...data)
+    if (data.length < 1000) break
+  }
+  return out.map(auto)
+}
+
 // Fields the app may write. Sheet rows only ever get status/notes/reminder changed.
 const EDITABLE = ['title', 'type', 'status', 'priority', 'start_date', 'due_date', 'lot_number', 'product_name', 'section', 'assignee', 'notes', ...OPTIONAL]
 const clean = obj => Object.fromEntries(Object.entries(obj).filter(([k]) => EDITABLE.includes(k) && (!OPTIONAL.includes(k) || present.has(k))))

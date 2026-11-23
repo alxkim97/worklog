@@ -14,6 +14,7 @@ const defaultPrefs = {
   remindTime: '08:30',         // when reminders fire on their day
   pvRemind: 1,                 // PV lots without their own setting: days before (null = off)
   changeAlerts: true,          // notify when the sheet moves a PV / R&D-line step
+  sound: true,                 // soft chime with notifications
 }
 
 function loadPrefs() {
@@ -28,8 +29,9 @@ export const state = {
   lastRun: null,
   syncing: false,
   loaded: false,
-  view: 'today',               // today | week | month | lots | settings | search
+  view: 'today',               // today | week | month | lots | summary | settings | search
   cursor: today(),             // anchor date for week/month
+  sumCursor: today(),          // anchor date for the R&D Summary (month or year)
   selected: today(),           // selected day in month view
   search: '',
   prefs: loadPrefs(),
