@@ -13,6 +13,7 @@ const defaultPrefs = {
   collapsed: false,            // desktop: hide the nav sidebar + month day panel
   remindTime: '08:30',         // when reminders fire on their day
   pvRemind: 1,                 // PV lots without their own setting: days before (null = off)
+  changeAlerts: true,          // notify when the sheet moves a PV / R&D-line step
 }
 
 function loadPrefs() {

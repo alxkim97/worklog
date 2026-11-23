@@ -5,7 +5,10 @@ import { DEPT_BY_KEY } from '../lib/depts.js'
 import { relDay, shortDate } from './dates.js'
 import { isOverdue, isSheet, isRdLine, groupByDept } from './store.js'
 import { reminderFor, remindLabel } from './reminders.js'
+import { checklistProgress } from './checklists.js'
 
+// hidden on finished steps you never ticked (past plan steps count as done)
+export const clFlag = t => { const p = checklistProgress(t); return p && (p.started || t.status !== 'done') ? `<span class="flag cl${p.done === p.total ? ' full' : ''}" title="PV checklist">${icon('check', 11)}${p.done}/${p.total}</span>` : '' }
 const bell = t => { const r = reminderFor(t); return r ? `<span class="has-bell" title="Reminder: ${esc(remindLabel(r.days))}${r.auto ? ' (PV default)' : ''}">${icon('bell', 13)}</span>` : '' }
 
 export const TYPES = [
@@ -56,6 +59,7 @@ export function taskRow(t, { showDate = true } = {}) {
     t.type === 'pv_lot' ? '<span class="flag pv">PV</span>' : '',
     t.notes ? `<span class="has-note" title="Has notes">${icon('note', 13)}</span>` : '',
     bell(t),
+    clFlag(t),
   ].join('')
   return `
     <div class="task s-${t.status}" style="--c:${deptColor(t.section || 'rd')}" data-act="open" data-id="${t.id}" tabindex="0">

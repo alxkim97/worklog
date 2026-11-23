@@ -62,7 +62,7 @@ function render() {
   root.innerHTML = `
     <div class="widget">
       <header class="wg-bar">
-        <span class="logo wg-logo">W</span>
+        <img class="logo wg-logo" src="./favicon.svg" alt="">
         <b class="wg-title">${esc(fromStr(cursor).toLocaleString('en-GB', { month: 'long' }))}${cursor.slice(0, 4) !== today().slice(0, 4) ? ` ${cursor.slice(0, 4)}` : ''}</b>
         <div class="wg-btns">
           <button class="icon-btn small" data-act="prev" aria-label="Previous month">${icon('left', 16)}</button>

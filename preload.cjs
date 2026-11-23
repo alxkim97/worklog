@@ -6,6 +6,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
   checkForUpdates: () => ipcRenderer.invoke('updater:check'),
   onNavigate: (cb) => ipcRenderer.on('navigate', (_e, msg) => cb(msg)),
   focusMain: () => ipcRenderer.invoke('app:focus'),
+  printPdf: (name) => ipcRenderer.invoke('print:pdf', name),
   // The pinned month widget (a second, frameless window).
   widget: {
     toggle: () => ipcRenderer.invoke('widget:toggle'),

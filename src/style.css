@@ -719,3 +719,74 @@ html.is-widget, html.is-widget body { overflow: hidden; background: var(--bg); }
 .topbar-right { min-width: 0; }
 .topbar .search-box { width: auto; flex: 0 1 240px; min-width: 100px; }
 .topbar h1 { flex-shrink: 0; }
+
+/* ── Plan changes (Today) ── */
+.card.tone-amber { border-color: color-mix(in srgb, var(--amber) 35%, var(--border)); background: linear-gradient(180deg, var(--amber-weak), var(--surface) 60%); }
+.card.tone-amber .card-head h2 .ico { color: var(--amber); }
+.changes { display: flex; flex-direction: column; gap: 4px; }
+.change { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 0 10px; text-align: left; padding: 7px 10px; border-radius: 9px; background: var(--surface); border: 1px solid var(--border); }
+button.change:hover { border-color: var(--border-2); }
+.ch-what { font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.ch-when { grid-column: 1 / -1; font-size: 12px; color: var(--text3); }
+.ch-how { font-size: 12.5px; font-weight: 600; color: var(--amber); }
+.change.k-removed .ch-how { color: var(--red); }
+.change.k-added .ch-how { color: var(--green); }
+
+/* ── PV checklist ── */
+.flag.cl { display: inline-flex; align-items: center; gap: 2px; background: var(--surface-2); color: var(--text2); text-transform: none; }
+.flag.cl.full { background: var(--green-weak); color: var(--green); }
+.step-body .flag.cl { margin-left: auto; margin-right: 8px; align-self: center; }
+.checklist .field-label { display: flex; align-items: center; gap: 4px; }
+.cl-count { margin-left: 4px; color: var(--accent-ink); }
+.cl-list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 2px; }
+.cl-item { display: flex; align-items: center; gap: 6px; padding: 3px 4px 3px 8px; border-radius: 8px; color: var(--text); font-size: 14px; font-weight: 500; }
+.cl-item:hover { background: var(--surface-2); }
+.cl-item label { flex: 1; display: flex; align-items: flex-start; gap: 10px; cursor: pointer; padding: 3px 0; }
+.cl-item input { width: 17px; height: 17px; margin: 1px 0 0; accent-color: var(--accent); flex-shrink: 0; }
+.cl-item.done span { color: var(--text3); text-decoration: line-through; }
+.cl-del { opacity: 0; }
+.cl-item:hover .cl-del, .cl-del:focus-visible { opacity: 1; }
+.cl-add { font: inherit; font-size: 13.5px; font-weight: 450; color: var(--text); padding: 8px 12px; border-radius: 10px; border: 1px dashed var(--border-2); background: transparent; outline: 0; }
+.cl-add:focus { border-style: solid; border-color: var(--accent); }
+
+/* ── Printable week (Print button / Save as PDF) ── */
+.print-head { display: none; }
+@media print {
+  :root, :root[data-theme="dark"], :root[data-theme="light"], :root:not([data-theme="light"]) {
+    --bg: #ffffff; --bg-tint: #ffffff; --surface: #ffffff; --surface-2: #f4f2fa; --surface-3: #e9e6f5;
+    --border: #d9d4ea; --border-2: #c8c1e0; --text: #15122a; --text2: #3e3a58; --text3: #5d5878;
+    --accent: #6d4aff; --accent-weak: #ece6ff; --accent-ink: #4f2fe0; --on-accent: #fff;
+    --red: #d42a43; --red-weak: #fde8eb; --green: #0e8a5a; --green-weak: #dcf6ea; --amber: #a86300; --amber-weak: #fff1d9;
+    --blue: #2563eb; --blue-weak: #e0ebff; --shadow-sm: none; --shadow-md: none; --tint: 14%;
+    color-scheme: light;
+  }
+  @page { size: A4 landscape; margin: 9mm; }
+  * { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+  html, body, #app { height: auto; background: #fff; }
+  .sidebar, .topbar, .tabbar, .phone-top, .phone-sub, .add-day, .toast, .overlay, .check, .cl-del { display: none !important; }
+  .shell.desktop, .shell.phone { display: block; height: auto; padding: 0; }
+  .main { display: block; height: auto; }
+  .content { overflow: visible !important; padding: 0 !important; }
+  .print-head { display: flex; justify-content: space-between; align-items: baseline; gap: 12px; margin: 0 0 8px; font-size: 11px; color: var(--text3); }
+  .print-head b { font: 700 16px var(--font-display); color: var(--text); }
+  .week { display: grid !important; min-width: 0; gap: 5px; }
+  .wday { box-shadow: none !important; min-height: 0; }
+  .wday.is-today { border-color: var(--border); }
+  .wday.is-today .dn { background: none; color: var(--text); -webkit-text-fill-color: currentColor; }
+  .wday-head { padding: 6px 7px 5px; }
+  .wday-head .dn { font-size: 16px; }
+  .wday-body { padding: 5px; gap: 6px; }
+  .wday .task { display: block; padding: 4px 6px 4px 9px; }
+  .wday .task-title { display: block; font-size: 10.5px; -webkit-line-clamp: unset; }
+  .wday .task-meta { font-size: 9px; }
+  .wday .task-flags { padding: 2px 0 0; }
+  .wday .chip { padding: 2px 5px 3px; font-size: 10px; }
+  .wday .chip-name { display: block; -webkit-line-clamp: unset; }
+  .wday .chip-step { font-size: 8px; }
+  .prod-head { font-size: 10px; margin-bottom: 3px; }
+  .note-pill { font-size: 10px; }
+}
+
+/* App mark (calendar + clock, public/favicon.svg) */
+img.logo { background: none; display: block; object-fit: contain; box-shadow: 0 4px 12px -5px rgba(177, 75, 244, .7); }
+img.wg-logo { box-shadow: none; }

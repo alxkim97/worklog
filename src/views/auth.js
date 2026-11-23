@@ -4,7 +4,7 @@ import { esc } from '../ui.js'
 const shell = inner => `
   <div class="auth">
     <div class="auth-card">
-      <div class="brand big"><span class="logo">W</span><span>WorkLog</span></div>
+      <div class="brand big"><img class="logo" src="./favicon.svg" alt=""><span>WorkLog</span></div>
       ${inner}
     </div>
   </div>`

@@ -81,7 +81,7 @@ export async function askPermission() {
   return (await Notification.requestPermission()) === 'granted'
 }
 
-function notify({ title, body, tag }, onClick) {
+export function notify({ title, body, tag }, onClick) {
   if (!canNotify() || Notification.permission !== 'granted') return false
   const n = new Notification(title, { body, tag, icon: './icon-192.png' })
   n.onclick = () => { window.focus(); window.electronAPI?.focusMain?.(); onClick?.() }

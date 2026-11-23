@@ -9,7 +9,7 @@ const root = path.join(__dirname, '..')
 const svg = fs.readFileSync(path.join(root, 'public', 'favicon.svg'), 'utf8')
 // Full-bleed variant (square corners, mark scaled into the 80% safe zone)
 // for the maskable + Apple icons, which the OS crops itself.
-const bleed = svg.replace('rx="120"', 'rx="0"').replace('<path ', '<path transform="translate(51 51) scale(.8)" ')
+const bleed = svg.replace('rx="120"', 'rx="0"').replace('<g id="mark">', '<g id="mark" transform="translate(51 51) scale(.8)">')
 
 async function render(win, markup, size) {
   const html = `<html><body style="margin:0;background:transparent"><div style="width:${size}px;height:${size}px">${markup.replace('<svg ', `<svg width="${size}" height="${size}" `)}</div></body></html>`

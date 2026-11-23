@@ -1,6 +1,6 @@
 import { pvLots } from '../store.js'
 import { today, shortDate, relDay } from '../dates.js'
-import { deptColor, deptLabel, statusButton, empty } from '../components.js'
+import { deptColor, deptLabel, statusButton, empty, clFlag } from '../components.js'
 import { esc } from '../ui.js'
 
 export function renderLots() {
@@ -36,7 +36,7 @@ function lotCard(l) {
             ${statusButton(s)}
             <button type="button" class="step-body" data-act="open" data-id="${s.id}">
               <span class="step-name">${esc(s.step || deptLabel(s.section))}</span>
-              <span class="step-date">${esc(shortDate(s.due_date))}</span>
+              ${clFlag(s)}<span class="step-date">${esc(shortDate(s.due_date))}</span>
             </button>
           </li>`).join('')}
       </ol>

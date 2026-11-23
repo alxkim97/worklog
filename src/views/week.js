@@ -3,6 +3,16 @@ import { today, addDays, weekStart, weekday, dayNum, isWeekend, shortDate, fromS
 import { taskRow, productionBlock, deptColor } from '../components.js'
 import { esc, icon } from '../ui.js'
 
+// "WorkLog Week 22-28 Nov 2026 (R.0_261123).pdf" — authored-file naming.
+export function printFileName() {
+  const s = weekStart(state.cursor)
+  const e = addDays(s, 6)
+  const fmt = d => fromStr(d).toLocaleString('en-GB', { day: 'numeric', month: 'short' })
+  const range = s.slice(0, 7) === e.slice(0, 7) ? `${dayNum(s)}-${fmt(e)}` : `${fmt(s)} - ${fmt(e)}`
+  const t = today()
+  return `WorkLog Week ${range} ${e.slice(0, 4)} (R.0_${t.slice(2, 4)}${t.slice(5, 7)}${t.slice(8, 10)}).pdf`
+}
+
 export function weekTitle() {
   const s = weekStart(state.cursor)
   const e = addDays(s, 6)
@@ -20,7 +30,9 @@ export function renderWeek({ isPhone } = {}) {
   const isEmpty = c => !c.mine.length && !c.production.length && !c.notes.length
   // Empty weekend days shrink to a narrow strip so the working days get the width.
   const cols = days.map((d, i) => isWeekend(d) && isEmpty(content[i]) ? 'minmax(64px, .32fr)' : 'minmax(0, 1fr)').join(' ')
+  const layer = { all: 'All production', pv: 'PV + R&D line', off: 'Mine only' }[state.prefs.production]
   return `
+    <div class="print-head"><b>WorkLog · Week ${esc(weekTitle())} ${s.slice(0, 4)}</b><span>${esc(layer)} · printed ${esc(new Date().toLocaleString('en-GB', { day: 'numeric', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' }))}</span></div>
     <div class="week" style="--week-cols:${cols}">
       ${days.map((d, i) => {
         const { mine, production, notes } = content[i]

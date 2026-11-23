@@ -4,6 +4,8 @@ import { state, savePrefs, cacheData, restoreCache, clearCache, counts, isProduc
 import { today, addDays, addMonths, timeAgo } from './dates.js'
 import { esc, icon, toast, closeTopModal, modalOpen, openModal } from './ui.js'
 import { startReminders, testNotification, askPermission, canNotify } from './reminders.js'
+import { diffPlan, recordPlanChanges, clearChanges } from './planChanges.js'
+import { printFileName } from './views/week.js'
 import { renderAuth, renderNotMember, renderNotConfigured } from './views/auth.js'
 import { renderToday } from './views/today.js'
 import { renderWeek, weekTitle } from './views/week.js'
@@ -54,6 +56,8 @@ let remindersStarted = false
 async function load() {
   try {
     const [tasks, notes, run] = await Promise.all([fetchTasks(), fetchNotes(), lastSyncRun()])
+    // what you saw last (cache or previous load) vs. now: PV / R&D-line moves
+    if (state.loaded && state.tasks.length) recordPlanChanges(diffPlan(state.tasks, tasks))
     Object.assign(state, { tasks, notes, lastRun: run, loaded: true })
     cacheData()
     if (!remindersStarted) { remindersStarted = true; startReminders(id => openEditor({ id }, render)) }
@@ -131,6 +135,7 @@ const periodNav = () => isPlan(state.view) ? `
     <button class="icon-btn" data-act="prev" aria-label="Previous">${icon('left')}</button>
     <button class="btn soft small" data-act="today">Today</button>
     <button class="icon-btn" data-act="next" aria-label="Next">${icon('right')}</button>
+    ${state.view === 'week' ? `<button class="icon-btn" data-act="print" title="Print or save this week as PDF" aria-label="Print week">${icon('printer', 18)}</button>` : ''}
   </div>` : ''
 
 const layerToggle = () => isPlan(state.view) ? `
@@ -155,7 +160,7 @@ function desktopShell() {
   return `
     <div class="shell desktop${collapsed ? ' collapsed' : ''}">
       <aside class="sidebar">
-        <div class="brand"><span class="logo">W</span><span>WorkLog</span></div>
+        <div class="brand"><img class="logo" src="./favicon.svg" alt=""><span>WorkLog</span></div>
         <button class="btn primary block new-btn" data-act="new">${icon('plus', 18)} New task <kbd>N</kbd></button>
         <nav>
           ${NAV.map(n => `<button class="nav-item${navOn(n.view) ? ' on' : ''}" data-act="nav" data-view="${n.view}">${icon(n.icon, 18)}<span>${n.label}</span>${badge[n.view] ? `<b class="nav-badge${c.overdue && n.view === 'today' ? ' red' : ''}">${badge[n.view]}</b>` : ''}</button>`).join('')}
@@ -194,7 +199,7 @@ function phoneShell() {
   return `
     <div class="shell phone">
       <header class="phone-top">
-        ${state.view === 'today' ? `<div class="brand"><span class="logo">W</span><span>WorkLog</span></div>` : `<h1>${esc(viewTitle())}</h1>`}
+        ${state.view === 'today' ? `<div class="brand"><img class="logo" src="./favicon.svg" alt=""><span>WorkLog</span></div>` : `<h1>${esc(viewTitle())}</h1>`}
         <div class="phone-top-right">
           ${isPlan(state.view) ? `<button class="icon-btn" data-act="prev" aria-label="Previous">${icon('left')}</button><button class="icon-btn" data-act="next" aria-label="Next">${icon('right')}</button>` : ''}
           ${state.view !== 'search' ? `<button class="icon-btn" data-act="nav" data-view="search" aria-label="Search">${icon('search')}</button>` : ''}
@@ -303,6 +308,9 @@ async function onClick(e) {
     }
     case 'theme': savePrefs({ theme: value }); applyTheme(value); return render()
     case 'collapse': return toggleCollapsed()
+    case 'print': return printWeek()
+    case 'clear-changes': clearChanges(); return render()
+    case 'change-alerts': savePrefs({ changeAlerts: value === 'on' }); if (value === 'on') askPermission(); return render()
     case 'widget': return window.electronAPI?.widget?.toggle()
     case 'pv-remind': savePrefs({ pvRemind: value === 'off' ? null : Number(value) }); if (value !== 'off') askPermission(); return render()
     case 'test-notify':
@@ -320,6 +328,17 @@ async function onClick(e) {
   }
 }
 root.addEventListener('click', onClick)
+
+// Desktop app: straight to a PDF (save dialog, then it opens). Browser: the
+// print dialog, where "Save as PDF" does the same.
+async function printWeek() {
+  if (window.electronAPI?.printPdf) {
+    try {
+      const file = await window.electronAPI.printPdf(printFileName())
+      if (file) toast('Saved PDF')
+    } catch (e) { toast(e.message || 'Could not make the PDF') }
+  } else window.print()
+}
 
 function toggleCollapsed() {
   savePrefs({ collapsed: !state.prefs.collapsed })

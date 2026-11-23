@@ -1,4 +1,4 @@
-const { app, BrowserWindow, ipcMain, dialog, Tray, Menu, globalShortcut, screen } = require('electron')
+const { app, BrowserWindow, ipcMain, dialog, Tray, Menu, globalShortcut, screen, shell } = require('electron')
 const path = require('path')
 const fs = require('fs')
 const { autoUpdater } = require('electron-updater')
@@ -145,6 +145,22 @@ ipcMain.handle('widget:open-main', (_e, msg) => {
   if (msg && (msg.date || msg.id)) focusAndNavigate(msg)
   else if (mainWindow) { if (mainWindow.isMinimized()) mainWindow.restore(); mainWindow.show(); mainWindow.focus() }
 })
+// Print the week: render the page's print CSS to an A4 landscape PDF, ask
+// where to save it, then open it.
+ipcMain.handle('print:pdf', async (e, name) => {
+  const win = BrowserWindow.fromWebContents(e.sender)
+  const pdf = await e.sender.printToPDF({ landscape: true, pageSize: 'A4', printBackground: true, scale: 0.82, margins: { marginType: 'custom', top: 0.35, bottom: 0.35, left: 0.35, right: 0.35 } })
+  const { canceled, filePath } = await dialog.showSaveDialog(win, {
+    title: 'Save week as PDF',
+    defaultPath: path.join(app.getPath('documents'), String(name || 'WorkLog week.pdf').replace(/[\\/:*?"<>|]/g, '-')),
+    filters: [{ name: 'PDF', extensions: ['pdf'] }],
+  })
+  if (canceled || !filePath) return null
+  fs.writeFileSync(filePath, pdf)
+  shell.openPath(filePath)
+  return filePath
+})
+
 // A reminder notification was clicked.
 ipcMain.handle('app:focus', () => {
   if (!mainWindow) return

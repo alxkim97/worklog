@@ -35,13 +35,22 @@ const auto = r => r.source === 'sheet' && r.status === 'pending' && r.due_date &
   ? { ...r, status: 'done', auto_done: true } : r
 
 const BASE_COLS = 'id,title,type,status,priority,start_date,due_date,lot_number,product_name,section,step,assignee,notes,source,sheet_ref,sheet_path,sheet_removed_at,done_at,created_at,updated_at'
-// remind_days arrived in v2.1 (supabase/SETUP.md, part D). Until that SQL has
-// been run the column is missing; the app then works as before, without
-// per-task reminders, instead of failing to load.
-let hasRemind = true
-export const remindColumnReady = () => hasRemind
-const cols = () => hasRemind ? `${BASE_COLS},remind_days` : BASE_COLS
-const missingColumn = e => e?.code === '42703' || /remind_days/.test(e?.message || '')
+// Columns added after v2.0 (supabase/SETUP.md parts D and E). Until their SQL
+// has been run a column is missing; the app then works without that feature
+// instead of failing to load.
+const OPTIONAL = ['remind_days', 'checklist']
+const present = new Set(OPTIONAL)
+export const remindColumnReady = () => present.has('remind_days')
+export const checklistColumnReady = () => present.has('checklist')
+const cols = () => [BASE_COLS, ...OPTIONAL.filter(c => present.has(c))].join(',')
+// PostgREST: 'column work_tasks.checklist does not exist' (code 42703)
+function dropMissing(e) {
+  if (e?.code !== '42703' && !/does not exist/.test(e?.message || '')) return false
+  const named = OPTIONAL.filter(c => present.has(c) && (e.message || '').includes(c))
+  const drop = named.length ? named : OPTIONAL.filter(c => present.has(c))
+  drop.forEach(c => present.delete(c))
+  return drop.length > 0
+}
 
 export async function fetchTasks() {
   const since = addDays(today(), -HISTORY_DAYS)
@@ -53,7 +62,7 @@ export async function fetchTasks() {
       .order('due_date', { ascending: true, nullsFirst: false })
       .order('id')
       .range(start, start + 999)
-    if (error && hasRemind && missingColumn(error)) { hasRemind = false; return fetchTasks() }
+    if (error && dropMissing(error)) return fetchTasks()
     if (error) throw error
     out.push(...data)
     if (data.length < 1000) break
@@ -62,8 +71,8 @@ export async function fetchTasks() {
 }
 
 // Fields the app may write. Sheet rows only ever get status/notes/reminder changed.
-const EDITABLE = ['title', 'type', 'status', 'priority', 'start_date', 'due_date', 'lot_number', 'product_name', 'section', 'assignee', 'notes', 'remind_days']
-const clean = obj => Object.fromEntries(Object.entries(obj).filter(([k]) => EDITABLE.includes(k) && (k !== 'remind_days' || hasRemind)))
+const EDITABLE = ['title', 'type', 'status', 'priority', 'start_date', 'due_date', 'lot_number', 'product_name', 'section', 'assignee', 'notes', ...OPTIONAL]
+const clean = obj => Object.fromEntries(Object.entries(obj).filter(([k]) => EDITABLE.includes(k) && (!OPTIONAL.includes(k) || present.has(k))))
 
 export async function createTask(task) {
   const { data, error } = await supa.from('work_tasks').insert({ ...clean(task), source: 'manual' }).select(cols()).single()

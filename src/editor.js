@@ -2,7 +2,8 @@ import { openModal, confirmBox, toast, esc, icon } from './ui.js'
 import { TYPES, STATUSES, PRIORITIES, deptColor, deptLabel } from './components.js'
 import { DEPTS } from '../lib/depts.js'
 import { state, isSheet, isProduction } from './store.js'
-import { createTask, updateTask, deleteTask, restoreTask, remindColumnReady } from './data.js'
+import { createTask, updateTask, deleteTask, restoreTask, remindColumnReady, checklistColumnReady } from './data.js'
+import { checklistFor } from './checklists.js'
 import { REMIND_OPTIONS, askPermission } from './reminders.js'
 import { today, longDate } from './dates.js'
 
@@ -31,6 +32,61 @@ function readRemind(f) {
 }
 // Manual tasks: 'Off' is plain null (no default applies), except PV lots.
 const remindValue = (f, type) => { const d = readRemind(f); return d === -1 && type !== 'pv_lot' ? null : d }
+
+// PV sampling/IPC checklist. Ticks save straight away (no Save needed).
+const checklistItems = items => items.map((it, i) => `
+  <li class="cl-item${it.done ? ' done' : ''}">
+    <label><input type="checkbox" data-cl="${i}" ${it.done ? 'checked' : ''}><span>${esc(it.t)}</span></label>
+    <button type="button" class="icon-btn small cl-del" data-cl-del="${i}" aria-label="Remove item">${icon('x', 13)}</button>
+  </li>`).join('')
+function checklistField(t) {
+  const items = checklistColumnReady() && checklistFor(t)
+  if (!items) return ''
+  return `
+    <div class="field checklist" data-cl-box>
+      <span class="field-label">${icon('check', 14)} PV checklist <b class="cl-count">${items.filter(i => i.done).length}/${items.length}</b></span>
+      <ul class="cl-list">${checklistItems(items)}</ul>
+      <input class="cl-add" placeholder="Add an item, press Enter" maxlength="120" autocomplete="off">
+    </div>`
+}
+function wireChecklist(form, t, rerender) {
+  const box = form.querySelector('[data-cl-box]')
+  if (!box) return
+  let items = checklistFor(t).map(i => ({ ...i }))
+  const draw = () => {
+    box.querySelector('.cl-list').innerHTML = checklistItems(items)
+    box.querySelector('.cl-count').textContent = `${items.filter(i => i.done).length}/${items.length}`
+  }
+  const save = async () => {
+    draw()
+    try {
+      const row = await updateTask(t.id, { checklist: items })
+      Object.assign(t, row)
+      put(t, rerender)
+    } catch (err) { toast(err.message || 'Could not save the checklist') }
+  }
+  box.addEventListener('change', e => {
+    const i = e.target.dataset.cl
+    if (i == null) return
+    items[i].done = e.target.checked
+    save()
+  })
+  box.addEventListener('click', e => {
+    const b = e.target.closest('[data-cl-del]')
+    if (!b) return
+    items.splice(Number(b.dataset.clDel), 1)
+    save()
+  })
+  box.querySelector('.cl-add').addEventListener('keydown', e => {
+    if (e.key !== 'Enter') return
+    e.preventDefault()
+    const text = e.target.value.trim()
+    if (!text) return
+    items.push({ t: text, done: false })
+    e.target.value = ''
+    save()
+  })
+}
 
 // Upserts the edited row into state.tasks and redraws.
 function put(row, rerender) {
@@ -164,6 +220,7 @@ function openSheetTask(t, rerender) {
         </dl>
         <p class="muted small">${icon('factory', 14)} From the production plan. Dates and names update from the sheet; your status and notes are kept.</p>
         ${tracked ? `<div class="field"><span class="field-label">Status</span>${chips('status', STATUSES, t.status)}</div>` : ''}
+        ${checklistField(t)}
         ${remindField(t)}
         <label class="field">Your notes<textarea name="notes" rows="3" placeholder="Observations, sample IDs…">${esc(t.notes || '')}</textarea></label>
       </div>
@@ -178,6 +235,7 @@ function openSheetTask(t, rerender) {
   const form = m.el.querySelector('form')
   form.addEventListener('keydown', e => { if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) form.requestSubmit() })
   form.addEventListener('change', e => { if (e.target.name === 'remind' && e.target.value !== 'off') askPermission() })
+  wireChecklist(form, t, rerender)
   form.onsubmit = async e => {
     e.preventDefault()
     const f = new FormData(form)

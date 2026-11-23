@@ -90,6 +90,7 @@ const copy = x => JSON.parse(JSON.stringify(x))
 
 export const supa = null
 export const remindColumnReady = () => true
+export const checklistColumnReady = () => true
 export const getSession = async () => session
 export const onAuthChange = () => {}
 export const signIn = async () => {}

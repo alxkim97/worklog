@@ -52,6 +52,8 @@ export function renderSettings({ isPhone }) {
         <header class="card-head"><h2>${icon('bell', 18)} Reminders</h2></header>
         <label class="setting-label">PV lots — remind me</label>
         ${seg('pv-remind', p.pvRemind == null ? 'off' : String(p.pvRemind), [['off', 'Off'], ['0', 'On the day'], ['1', '1 day before'], ['2', '2 days'], ['3', '3 days']])}
+        <label class="setting-label">When the plan moves a PV or R&D-line step</label>
+        ${seg('change-alerts', p.changeAlerts === false ? 'off' : 'on', [['on', 'Notify me'], ['off', 'Just list it on Today']])}
         <label class="setting-label" for="remind-time">At</label>
         <input type="time" id="remind-time" class="time-input" value="${esc(p.remindTime)}">
         <div class="row-gap" style="margin-top:14px"><button class="btn soft small" data-act="test-notify">${icon('bell', 15)} Send a test</button></div>

@@ -165,6 +165,16 @@ per-task reminders; PV-lot reminders from Settings work either way.
 alter table work_tasks add column if not exists remind_days smallint;
 ```
 
+## E — v2.3 PV checklists
+
+Ticked sampling/IPC items on a PV step, stored as a list of
+`{ "t": "item text", "done": true }`. Empty = not started (the step's
+default list from src/checklists.js is shown). The sheet sync never writes it.
+
+```sql
+alter table work_tasks add column if not exists checklist jsonb;
+```
+
 ## Vercel environment variables (sheet sync)
 
 | Name | Value |

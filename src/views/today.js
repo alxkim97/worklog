@@ -3,6 +3,7 @@ import { today, addDays, longDate, relDay } from '../dates.js'
 import { taskRow, productionBlock, empty, noteList } from '../components.js'
 import { esc, icon } from '../ui.js'
 import { upcomingReminders, whenLabel } from '../reminders.js'
+import { loadChanges, changeText } from '../planChanges.js'
 
 function greeting() {
   const h = new Date().getHours()
@@ -66,6 +67,7 @@ export function renderToday() {
             state.prefs.production === 'all'
               ? (production.length ? productionBlock(production) : empty('No production on the plan today.', '🏭'))
               : `<p class="muted">Production layer is ${state.prefs.production === 'pv' ? 'set to PV + R&D line only' : 'hidden'}. <button class="link" data-act="layer" data-value="all">Show all</button></p>`)}
+          ${changeList()}
           ${section(`${icon('bell', 18)} Reminders`, reminderList(), { action: `<button class="link small" data-act="nav" data-view="settings">Settings</button>` })}
           ${section(`${icon('note', 18)} Notes`, noteList(notes, t))}
         </div>
@@ -90,4 +92,15 @@ function reminderList() {
       <span class="rem-what">${esc(task.source === 'sheet' ? (task.product_name || task.title) : task.title)}</span>
       <span class="rem-meta">${esc([task.step, relDay(startOf(task))].filter(Boolean).join(' · '))}${r.auto ? ' · PV' : ''}</span>
     </button>`).join('')}</div>`
+}
+
+// PV / R&D-line steps the sheet moved since you last looked.
+function changeList() {
+  const changes = loadChanges()
+  if (!changes.length) return ''
+  return section(`${icon('alert', 18)} Plan changes`, `<div class="changes">${changes.slice(0, 10).map(c => {
+    const x = changeText(c)
+    const tag = c.id ? `button type="button" data-act="open" data-id="${c.id}"` : 'div'
+    return `<${tag} class="change k-${c.kind}"><span class="ch-what">${esc(c.name)}</span><span class="ch-how">${esc(x.how)}</span><span class="ch-when">${esc([c.step, `noticed ${relDay(c.at.slice(0, 10)).toLowerCase()}`].filter(Boolean).join(' · '))}</span></${tag.split(' ')[0]}>`
+  }).join('')}</div>`, { tone: 'tone-amber', action: `<button class="link small" data-act="clear-changes">Clear</button>` })
 }
