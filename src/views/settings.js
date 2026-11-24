@@ -105,6 +105,10 @@ export function renderSettings({ isPhone }) {
     <section class="card">
       <header class="card-head"><h2>Account</h2></header>
       <p class="setting-line">${esc(state.session?.user?.email || '')}</p>
+      ${state.loginOpen == null ? '' : `
+        <label class="setting-label">Start with Windows</label>
+        ${seg('login', state.loginOpen ? 'on' : 'off', [['on', 'Start in the tray'], ['off', 'Off']])}
+        <p class="muted small" style="margin:8px 0 14px">Opens quietly in the tray when you sign in to Windows, so reminders and LINE messages go out without you opening WorkLog.</p>`}
       <div class="row-gap">
         ${window.electronAPI ? `<button class="btn soft" data-act="update">Check for updates</button>` : ''}
         <button class="btn ghost" data-act="signout">${icon('logout', 16)} Sign out</button>

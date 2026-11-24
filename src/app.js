@@ -320,6 +320,9 @@ async function onClick(e) {
     case 'day': state.view = 'month'; state.cursor = date; state.selected = date; return render()
     case 'layer': savePrefs({ production: value }); return render()
     case 'line': savePrefs({ line: value === 'on' }); return render()
+    case 'login':
+      try { state.loginOpen = await window.electronAPI.login.set(value === 'on') } catch (err) { toast(err.message) }
+      return render()
     case 'test-line':
       el.disabled = true
       try { await postLine('WorkLog\nLINE is connected — reminders and plan changes will arrive here.'); toast('Sent — check LINE') } catch (err) { toast(err.message) }
@@ -468,6 +471,7 @@ document.addEventListener('keydown', e => {
 // iOS ignores user-scalable=no; block pinch zoom like Coin does.
 for (const ev of ['gesturestart', 'gesturechange']) document.addEventListener(ev, e => e.preventDefault(), { passive: false })
 
+window.electronAPI?.login?.get().then(v => { if (v != null) { state.loginOpen = v; if (state.view === 'settings') render() } }).catch(() => {})
 initUpdateReload({ isBusy: modalOpen })
 setUndoRender(render)
 boot()

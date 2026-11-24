@@ -18,6 +18,7 @@ if (!gotSingleInstanceLock) {
 }
 
 const isDev = process.argv.includes('--dev')
+const startHidden = process.argv.includes('--hidden')
 let mainWindow = null
 let tray = null
 let isQuitting = false
@@ -52,7 +53,8 @@ function createWindow() {
   }
 
   // Show once painted to avoid a white flash on launch.
-  mainWindow.once('ready-to-show', () => mainWindow.show())
+  // Started by Windows at login (--hidden): sit in the tray, no window popping up.
+  mainWindow.once('ready-to-show', () => { if (!startHidden) mainWindow.show() })
   mainWindow.on('closed', () => { mainWindow = null })
 
   // The X button minimizes to tray instead of quitting, so WorkLog keeps
@@ -290,6 +292,16 @@ function checkForUpdates(manual) {
 ipcMain.handle('updater:check', () => checkForUpdates(true))
 ipcMain.handle('app:get-version', () => app.getVersion())
 
+// Start with Windows (hidden, in the tray) so reminders and LINE messages go
+// out without opening WorkLog. Packaged builds only. On by default the first
+// time; after that the Settings switch decides.
+function setLogin(on) {
+  if (!app.isPackaged) return
+  app.setLoginItemSettings({ openAtLogin: !!on, args: ['--hidden'] })
+}
+ipcMain.handle('login:get', () => (app.isPackaged ? app.getLoginItemSettings().openAtLogin : null))
+ipcMain.handle('login:set', (_e, on) => { setLogin(on); saveWidgetState({ loginChosen: true }); return app.isPackaged ? app.getLoginItemSettings().openAtLogin : null })
+
 if (gotSingleInstanceLock) {
   app.on('second-instance', () => {
     if (!mainWindow) return
@@ -301,6 +313,7 @@ if (gotSingleInstanceLock) {
   app.whenReady().then(() => {
     createWindow()
     if (loadWidgetState().open) createWidget()
+    if (!loadWidgetState().loginChosen) { setLogin(true); saveWidgetState({ loginChosen: true }) }
     try {
       createTray()
     } catch (err) {

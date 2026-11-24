@@ -28,6 +28,7 @@ export const state = {
   notes: [],
   lastRun: null,
   syncing: false,
+  loginOpen: null,             // desktop: starts with Windows? (null = not applicable)
   loaded: false,
   view: 'today',               // today | week | month | lots | summary | settings | search
   cursor: today(),             // anchor date for week/month
