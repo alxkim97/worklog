@@ -121,6 +121,19 @@ export async function restoreTask(row) {
   return data
 }
 
+// ── Settings the server also reads (worklog_settings, SETUP.md part F) ──
+// e.g. 'digest' → { daily, weekend }. null = the table isn't there yet.
+const missingTable = e => /worklog_settings|42P01|PGRST205|does not exist|schema cache/.test(`${e?.code} ${e?.message}`)
+export async function getSetting(key) {
+  const { data, error } = await supa.from('worklog_settings').select('value').eq('key', key).maybeSingle()
+  if (error) { if (missingTable(error)) return null; throw error }
+  return data?.value || {}
+}
+export async function setSetting(key, value) {
+  const { error } = await supa.from('worklog_settings').upsert({ key, value, updated_at: new Date().toISOString() })
+  if (error) throw error
+}
+
 // ── Day notes ──
 export async function fetchNotes() {
   const { data, error } = await supa.from('work_date_notes').select('*')

@@ -21,7 +21,10 @@ import { playChime } from './sound.js'
 import { setUndoRender, undo, redo, undoIf, putTask, snapshot, nameOf, recordUpdate, recordNoteAdd, recordNoteDelete } from './undo.js'
 import { renderSummary, summaryTitle, moveSummary, sumMode, summaryFileName, retrySummary } from './views/summary.js'
 import { openReport } from './report.js'
-import { postLine } from './line.js'
+import { postLine, postDigest } from './line.js'
+import { startDigest } from './digest.js'
+import { getSetting, setSetting } from './data.js'
+import { readOnly, leaveViewMode } from './viewMode.js'
 
 const root = document.getElementById('app')
 const PHONE = window.matchMedia('(max-width: 859px)')
@@ -58,19 +61,31 @@ async function start() {
 }
 
 let remindersStarted = false
-async function load() {
+async function load({ quiet = false } = {}) {
   try {
     const [tasks, notes, run] = await Promise.all([fetchTasks(), fetchNotes(), lastSyncRun()])
     // what you saw last (cache or previous load) vs. now: PV / R&D-line moves
     if (state.loaded && state.tasks.length) recordPlanChanges(diffPlan(state.tasks, tasks))
     Object.assign(state, { tasks, notes, lastRun: run, loaded: true })
     cacheData()
-    if (!remindersStarted) { remindersStarted = true; startReminders(id => openEditor({ id }, render)) }
+    // the server-side switches (daily digest, weekend message); null = SQL part F not run
+    getSetting('digest').then(v => { state.digest = v; if (state.view === 'settings') render() }, () => {})
+    if (!remindersStarted) { remindersStarted = true; startReminders(id => openEditor({ id }, render)); startDigest() }
   } catch (e) {
-    toast(e.message || 'Could not load')
+    if (!quiet) toast(e.message || 'Could not load')
   }
   render()
 }
+
+// Running in the tray all day: look at the plan every 15 minutes (and have
+// the sheet re-synced when the last sync is over an hour old), so a moved
+// PV / R&D-line step is noticed within minutes, not the next time the
+// window opens. Skipped while you're typing on the page.
+setInterval(() => {
+  if (!state.member || modalOpen() || document.activeElement?.closest?.('input, textarea')) return
+  lastFocusLoad = Date.now()
+  load({ quiet: true }).then(maybeAutoSync)
+}, 15 * 60_000)
 
 // ── Sync ─────────────────────────────────────────────────────────────────
 async function sync({ quiet = false } = {}) {
@@ -167,6 +182,9 @@ function syncButton(compact) {
 
 const collapseBtn = () => `<button class="icon-btn collapse-btn" data-act="collapse" aria-label="${state.prefs.collapsed ? 'Show' : 'Hide'} sidebars" title="${state.prefs.collapsed ? 'Show' : 'Hide'} sidebars  ( \\ )">${icon('sidebar', 19)}</button>`
 
+const viewBar = () => readOnly ? `
+  <div class="view-bar">${icon('eye', 16)}<span><b>View mode</b> — nothing can be changed here</span><button type="button" class="link" data-act="leave-view">Open full app</button></div>` : ''
+
 function desktopShell() {
   const c = counts()
   const badge = { today: c.today + c.overdue || '', lots: '' }
@@ -185,6 +203,7 @@ function desktopShell() {
         </div>
       </aside>
       <main class="main">
+        ${viewBar()}
         <header class="topbar">
           ${collapseBtn()}
           ${collapsed ? `<nav class="mini-nav">${NAV.filter(n => n.key).map(n => `<button class="icon-btn${navOn(n.view) ? ' on' : ''}" data-act="nav" data-view="${n.view}" title="${n.label}  (${n.key})" aria-label="${n.label}">${icon(n.icon, 18)}</button>`).join('')}<button class="icon-btn" data-act="new" title="New task  (N)" aria-label="New task">${icon('plus', 18)}</button></nav>` : ''}
@@ -212,6 +231,7 @@ function phoneShell() {
   ]
   return `
     <div class="shell phone">
+      ${viewBar()}
       <header class="phone-top">
         ${state.view === 'today' ? `<div class="brand"><img class="logo" src="./favicon.svg" alt=""><span>WorkLog</span></div>` : `<h1>${esc(viewTitle())}</h1>`}
         <div class="phone-top-right">
@@ -269,6 +289,8 @@ function move(dir) {
 }
 
 // ── Interaction (one delegated handler) ──────────────────────────────────
+// View mode (the LINE card's link, ?view=1): looking only.
+const VIEW_BLOCKED = new Set(['new', 'cycle', 'del-note', 'digest-daily', 'digest-weekend', 'digest-test', 'test-line', 'line', 'login', 'clear-changes'])
 const NEXT_STATUS = { pending: 'in_progress', in_progress: 'done', done: 'pending', deferred: 'pending' }
 
 async function cycleStatus(id) {
@@ -297,7 +319,23 @@ async function onClick(e) {
   if (!el || !e.currentTarget.contains(el)) return
   const { act, id, view, date, value } = el.dataset
   if (act !== 'open' && act !== 'select') e.stopPropagation()
+  if (readOnly && VIEW_BLOCKED.has(act)) return toast('View mode — open the full app to change things')
   switch (act) {
+    case 'leave-view': return leaveViewMode()
+    case 'digest-daily':
+    case 'digest-weekend': {
+      const next = { daily: true, weekend: true, ...(state.digest || {}), [act === 'digest-daily' ? 'daily' : 'weekend']: value === 'on' }
+      const prev = state.digest
+      state.digest = next
+      render()
+      try { await setSetting('digest', next) } catch (err) { state.digest = prev; render(); toast(err.message) }
+      return
+    }
+    case 'digest-test':
+      el.disabled = true
+      try { const r = await postDigest('test'); toast(r.sent ? 'Sent today’s digest — check LINE' : r.reason || 'Not sent') } catch (err) { toast(err.message) }
+      el.disabled = false
+      return
     case 'nav': return setView(view)
     case 'new': return openEditor({ date: date || (state.view === 'month' ? state.selected : today()) }, render)
     case 'open': return openEditor({ id }, render)
@@ -399,6 +437,7 @@ root.addEventListener('keydown', onKeyOpen)
 async function onSubmit(e) {
   const form = e.target.closest('.note-add')
   if (!form) return
+  if (readOnly) { e.preventDefault(); return }
   e.preventDefault()
   const input = form.elements.note
   const text = input.value.trim()
@@ -449,13 +488,14 @@ document.addEventListener('keydown', e => {
   if (e.key === 'Escape') { if (closeTopModal()) return; if (state.view === 'search') { state.search = ''; setView('today') } return }
   const k = e.key.toLowerCase()
   if ((e.ctrlKey || e.metaKey) && !e.altKey && (k === 'z' || k === 'y') && state.member) {
-    if (textEntry(e.target)) return
+    if (textEntry(e.target) || readOnly) return
     e.preventDefault()
     if (k === 'y' || e.shiftKey) redo(); else undo()
     return
   }
   const typing = e.target.closest('input, textarea, select, [contenteditable]')
   if (typing || modalOpen() || e.ctrlKey || e.metaKey || e.altKey || !state.member) return
+  if (readOnly && e.key.toLowerCase() === 'n') return
   const keys = {
     n: () => openEditor({ date: state.view === 'month' ? state.selected : today() }, render),
     t: () => { state.cursor = today(); state.selected = today(); render() },

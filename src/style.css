@@ -947,3 +947,15 @@ button.sum-row:hover { background: var(--surface-2); }
 /* App mark (calendar + clock, public/favicon.svg) */
 img.logo { background: none; display: block; object-fit: contain; box-shadow: 0 4px 12px -5px rgba(177, 75, 244, .7); }
 img.wg-logo { box-shadow: none; }
+
+/* ── View mode (?view=1, the LINE card link): looking only ── */
+.view-bar { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; padding: 8px 16px; font-size: 13px; color: var(--accent-ink); background: var(--accent-weak); border-bottom: 1px solid color-mix(in srgb, var(--accent) 25%, var(--border)); }
+.view-bar .ico { color: var(--accent); }
+.view-bar .link { margin-left: auto; font-size: 13px; }
+.shell.phone > .view-bar { padding-top: calc(env(safe-area-inset-top) + 8px); }
+html.read-only .new-btn, html.read-only [data-act="new"], html.read-only .add-day,
+html.read-only .note-add, html.read-only [data-act="del-note"], html.read-only [data-act="clear-changes"] { display: none !important; }
+html.read-only .tab-add { visibility: hidden; }
+html.read-only .check { pointer-events: none; }
+html.read-only .modal textarea:disabled, html.read-only .modal .field > input:disabled { opacity: .85; cursor: default; }
+html.read-only .choice-item input:disabled + span { cursor: default; }

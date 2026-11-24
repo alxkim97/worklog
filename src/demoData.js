@@ -145,3 +145,6 @@ export async function addNote(note_date, content) { const r = { id: id(), note_d
 export async function deleteNote(noteId) { notes = notes.filter(x => x.id !== noteId) }
 export const lastSyncRun = async () => copy(lastRun)
 export async function triggerSync() { await wait(900); lastRun.started_at = lastRun.finished_at = now(); return { ok: true, found: tasks.length, added: 0, removed: 0 } }
+const settings = { digest: { daily: true, weekend: true } }
+export const getSetting = async key => copy(settings[key] || {})
+export async function setSetting(key, value) { settings[key] = copy(value) }

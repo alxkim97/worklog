@@ -87,7 +87,7 @@ export async function askPermission() {
 // switched on, desktop app only) the same text to LINE — even when Windows
 // notifications are blocked. line: false for the Settings test.
 export function notify({ title, body, tag, line = true }, onClick) {
-  if (line) queueLine(`${title}\n${body}`)
+  if (line) queueLine(title, body)
   if (!canNotify() || Notification.permission !== 'granted') return false
   const n = new Notification(title, { body, tag, icon: './icon-192.png' })
   n.onclick = () => { window.focus(); window.electronAPI?.focusMain?.(); onClick?.() }

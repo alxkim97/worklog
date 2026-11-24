@@ -3,8 +3,10 @@
 // runs. The sheet has no stable row id (a row's key includes its date), so a
 // step is matched on product + lot + step + department instead.
 import { state, isSheet, isRdLine } from './store.js'
-import { today, weekday, dayNum } from './dates.js'
+import { today, weekday, shortDate } from './dates.js'
 import { notify } from './reminders.js'
+import { planChangeMessage, toPlain } from '../lib/messages.js'
+import { lineChanges } from './line.js'
 
 const LOG_KEY = 'wl_plan_changes'
 const KEEP_DAYS = 14
@@ -45,7 +47,7 @@ export function diffPlan(prev, next) {
   return out
 }
 
-const day = d => `${weekday(d)} ${dayNum(d)}`
+const day = d => `${weekday(d)} ${shortDate(d)}`
 export function changeText(c) {
   const what = `${c.name}${c.step ? ` · ${c.step}` : ''}`
   if (c.kind === 'moved') return { what, how: `${day(c.from)} → ${day(c.to)}` }
@@ -68,7 +70,9 @@ export function recordPlanChanges(changes) {
   const log = [...changes.map(c => ({ ...c, at })), ...loadChanges()].slice(0, 60)
   try { localStorage.setItem(LOG_KEY, JSON.stringify(log)) } catch {}
   if (state.prefs.changeAlerts === false) return
-  const lines = changes.slice(0, 3).map(c => { const x = changeText(c); return `${x.what}: ${x.how}` })
-  if (changes.length > 3) lines.push(`+${changes.length - 3} more — see Today`)
-  notify({ title: `Plan changed · ${changes.length} PV / R&D step${changes.length > 1 ? 's' : ''}`, body: lines.join('\n'), tag: `plan-${at}` })
+  // Grouped by product, the next 14 days listed and later ones as one line:
+  // a Windows pop-up (plain text) and, if switched on, a LINE card.
+  const { title, body } = toPlain(planChangeMessage(changes, today()))
+  notify({ title, body, tag: `plan-${at}`, line: false })
+  lineChanges(changes)
 }

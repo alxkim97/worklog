@@ -12,13 +12,21 @@ const defaultPrefs = {
   planMode: 'week',            // the Plan view's last mode: week | month
   collapsed: false,            // desktop: hide the nav sidebar + month day panel
   remindTime: '08:30',         // when reminders fire on their day
-  pvRemind: 1,                 // PV lots without their own setting: days before (null = off)
+  pvRemind: null,              // extra heads-up before PV steps: days before (null = off; the daily digest covers the day)
   changeAlerts: true,          // notify when the sheet moves a PV / R&D-line step
   sound: true,                 // soft chime with notifications
 }
 
 function loadPrefs() {
-  try { return { ...defaultPrefs, ...JSON.parse(localStorage.getItem(PREFS_KEY) || '{}') } } catch { return { ...defaultPrefs } }
+  let p
+  try { p = { ...defaultPrefs, ...JSON.parse(localStorage.getItem(PREFS_KEY) || '{}') } } catch { p = { ...defaultPrefs } }
+  // v2.5: the daily digest replaces the old "1 day before" PV default, once.
+  if (!p.digestMigrated) {
+    if (p.pvRemind === 1) p.pvRemind = null
+    p.digestMigrated = true
+    try { localStorage.setItem(PREFS_KEY, JSON.stringify(p)) } catch {}
+  }
+  return p
 }
 
 export const state = {

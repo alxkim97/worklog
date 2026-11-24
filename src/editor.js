@@ -5,6 +5,7 @@ import { state, isSheet, isProduction } from './store.js'
 import { createTask, updateTask, deleteTask, remindColumnReady, checklistColumnReady } from './data.js'
 import { putTask, dropTask, snapshot, nameOf, recordUpdate, recordCreate, recordDelete, undoIf } from './undo.js'
 import { checklistFor } from './checklists.js'
+import { lockForm } from './viewMode.js'
 import { REMIND_OPTIONS, askPermission } from './reminders.js'
 import { today, longDate } from './dates.js'
 
@@ -91,7 +92,7 @@ function wireChecklist(form, t, rerender) {
     const [gone] = items.splice(Number(b.dataset.clDel), 1)
     save(`remove “${gone.t}”`)
   })
-  box.querySelector('.cl-add').addEventListener('keydown', e => {
+  box.querySelector('.cl-add')?.addEventListener('keydown', e => {
     if (e.key !== 'Enter') return
     e.preventDefault()
     const text = e.target.value.trim()
@@ -153,6 +154,7 @@ export function openEditor({ id, date } = {}, rerender) {
     </form>`)
 
   const form = m.el.querySelector('form')
+  lockForm(form)
   const titleInput = form.elements.title
   setTimeout(() => titleInput.focus(), 50)
 
@@ -251,6 +253,7 @@ function openSheetTask(t, rerender) {
       </footer>
     </form>`)
   const form = m.el.querySelector('form')
+  lockForm(form)
   form.addEventListener('keydown', e => { if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) form.requestSubmit() })
   form.addEventListener('change', e => { if (e.target.name === 'remind' && e.target.value !== 'off') askPermission() })
   wireChecklist(form, t, rerender)

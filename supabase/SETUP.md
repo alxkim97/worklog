@@ -175,6 +175,25 @@ default list from src/checklists.js is shown). The sheet sync never writes it.
 alter table work_tasks add column if not exists checklist jsonb;
 ```
 
+## F — v2.5 daily digest switches
+
+Settings the server reads too: `digest` holds the app's switches
+(`{ "daily": true, "weekend": true }`) and `digest_sent` the day the morning
+digest last went out, so the PC (08:30) and the server's fallback job never
+both send it.
+
+```sql
+create table if not exists worklog_settings (
+  key        text primary key,
+  value      jsonb not null default '{}'::jsonb,
+  updated_at timestamptz not null default now()
+);
+alter table worklog_settings enable row level security;
+drop policy if exists "members" on worklog_settings;
+create policy "members" on worklog_settings for all to authenticated
+  using (is_worklog_member()) with check (is_worklog_member());
+```
+
 ## Vercel environment variables (sheet sync)
 
 | Name | Value |

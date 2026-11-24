@@ -56,27 +56,35 @@ export function renderSettings({ isPhone }) {
   const reminders = `
     <section class="card">
       <header class="card-head"><h2>${icon('bell', 18)} Reminders</h2></header>
-      <label class="setting-label">PV lots — remind me</label>
-      ${seg('pv-remind', p.pvRemind == null ? 'off' : String(p.pvRemind), [['off', 'Off'], ['0', 'On the day'], ['1', '1 day before'], ['2', '2 days'], ['3', '3 days']])}
-      <label class="setting-label">When the plan moves a PV or R&D-line step</label>
-      ${seg('change-alerts', p.changeAlerts === false ? 'off' : 'on', [['on', 'Notify me'], ['off', 'Just list it on Today']])}
-      <label class="setting-label" for="remind-time">At</label>
+      <label class="setting-label">Daily R&amp;D digest — today’s PV steps, R&amp;D-line runs, your tasks, clashes (Mondays: the week ahead)</label>
+      ${state.digest === null ? '<p class="error-text">Needs one block of SQL in Supabase (SETUP.md, part F) — until then it’s always on, weekends included.</p>' : ''}
+      <div class="row-gap">
+        ${seg('digest-daily', state.digest?.daily === false ? 'off' : 'on', [['on', 'Every morning'], ['off', 'Off']])}
+        <button class="btn ghost small" data-act="digest-test" title="Send today’s digest to LINE now">Send today’s now</button>
+      </div>
+      <label class="setting-label">Weekends</label>
+      ${seg('digest-weekend', state.digest?.weekend === false ? 'off' : 'on', [['on', 'Enjoy-your-weekend note'], ['off', 'Nothing']])}
+      <label class="setting-label" for="remind-time">Time (digest and reminders)</label>
       <input type="time" id="remind-time" class="time-input" value="${esc(p.remindTime)}">
+      <label class="setting-label">When the plan moves a PV or R&amp;D-line step (next 14 days; later ones as one line)</label>
+      ${seg('change-alerts', p.changeAlerts === false ? 'off' : 'on', [['on', 'Notify me'], ['off', 'Just list it on Today']])}
+      <label class="setting-label">Extra heads-up before each PV step</label>
+      ${seg('pv-remind', p.pvRemind == null ? 'off' : String(p.pvRemind), [['off', 'Off (digest covers it)'], ['1', '1 day before'], ['2', '2 days'], ['3', '3 days']])}
       <label class="setting-label">Sound</label>
       <div class="row-gap">
         ${seg('sound', p.sound === false ? 'off' : 'on', [['on', 'Soft chime'], ['off', 'Silent']])}
         <button class="btn ghost small" data-act="test-sound" title="Play the chime">${icon('play', 14)} Play</button>
       </div>
-      <label class="setting-label">LINE (to your phone)</label>
+      <label class="setting-label">Orbit on LINE (to your phone)</label>
       ${lineSender() ? `
         <div class="row-gap">
           ${seg('line', p.line === true ? 'on' : 'off', [['on', 'Send to LINE'], ['off', 'Off']])}
           <button class="btn ghost small" data-act="test-line">Send a test</button>
         </div>
-        <p class="muted small" style="margin-top:8px">Reminders and plan changes also go to your LINE (Lotto777, only to you), sent by this desktop app while it runs.</p>`
-        : `<p class="muted small" style="margin:0">Sent by the desktop app (switch it on there in Settings), so your phone gets reminders even when WorkLog is closed.</p>`}
+        <p class="muted small" style="margin-top:8px">Reminders and plan changes also go to Orbit (only to you), sent by this desktop app while it runs. The morning digest is sent by the server, so it arrives even when this PC is off.</p>`
+        : `<p class="muted small" style="margin:0">Reminders and plan changes are sent by the desktop app; the morning digest by the server. Either way your phone gets them with WorkLog closed.</p>`}
       <div class="row-gap" style="margin-top:14px"><button class="btn soft small" data-act="test-notify">${icon('bell', 15)} Send a test</button></div>
-      <p class="muted small">Applies to every PV step from the plan unless you set something else on the step. Any task can have its own reminder: open it and pick <b>Remind me</b>.
+      <p class="muted small">The heads-up applies to every PV step from the plan unless you set something else on the step. Any task can have its own reminder: open it and pick <b>Remind me</b>.
         ${window.electronAPI ? 'Reminders pop up as Windows notifications while WorkLog runs (it keeps running in the tray).' : canNotify() ? `This browser shows them only while WorkLog is open${typeof Notification !== 'undefined' && Notification.permission === 'denied' ? ' — and notifications are blocked for this site' : ''}. The desktop app is the reliable one.` : 'This browser can’t show notifications — use the desktop app.'}</p>
       ${remindColumnReady() ? '' : '<p class="error-text">Per-task reminders need one line of SQL in Supabase (SETUP.md, part D). PV reminders work already.</p>'}
     </section>`
