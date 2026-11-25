@@ -5,6 +5,8 @@ import { esc, icon } from '../ui.js'
 import { canNotify } from '../reminders.js'
 import { remindColumnReady } from '../data.js'
 import { lineSender } from '../line.js'
+import { readOnly } from '../viewMode.js'
+import { WEB_URL } from '../config.js'
 
 const seg = (act, current, options) => `
   <div class="seg" role="radiogroup">
@@ -97,6 +99,27 @@ export function renderSettings({ isPhone }) {
       <p class="muted small">Drag it by its title bar, resize from the edges. The pin button on the widget keeps it above other windows.</p>
     </section>` : ''
 
+  // The secret view link on Orbit's cards (api/view). Not shown in view mode.
+  const v = state.viewLink
+  const viewLink = readOnly ? '' : `
+    <section class="card">
+      <header class="card-head"><h2>${icon('eye', 18)} View link</h2></header>
+      ${v === undefined ? '<p class="muted small">Checking…</p>' : v === null ? '<p class="error-text">Needs one block of SQL in Supabase (SETUP.md, part F).</p>'
+        : v?.token ? `
+          <p class="setting-line">On — every Orbit card opens WorkLog read-only, no sign-in.</p>
+          <p class="view-url">${esc(`${WEB_URL}/?v=${v.token.slice(0, 6)}…`)}</p>
+          <div class="row-gap">
+            <button class="btn soft small" data-act="view-copy">${icon('copy', 15)} Copy link</button>
+            <button class="btn ghost small" data-act="view-make" data-value="new">New link</button>
+            <button class="btn ghost small danger-text" data-act="view-off">Switch off</button>
+          </div>
+          <p class="muted small">Anyone with this link can see the plan (nothing can be changed). <b>New link</b> stops the old one at once.</p>`
+        : `
+          <p class="setting-line">Off — Orbit's cards open the signed-in app instead.</p>
+          <button class="btn soft small" data-act="view-make">Make the link</button>
+          <p class="muted small">A secret link that opens WorkLog read-only in any browser, no email or password. Orbit's cards use it automatically.</p>`}
+    </section>`
+
   const appearance = `
     <section class="card">
       <header class="card-head"><h2>${icon('moon', 18)} Appearance</h2></header>
@@ -126,7 +149,7 @@ export function renderSettings({ isPhone }) {
 
   return `
     <div class="settings">
-      <div class="settings-col">${search}${plan}${show}${appearance}${data}</div>
+      <div class="settings-col">${search}${plan}${show}${viewLink}${appearance}${data}</div>
       <div class="settings-col">${reminders}${widget}${account}</div>
     </div>`
 }

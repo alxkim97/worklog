@@ -1,4 +1,4 @@
-import { adminClient, isCron, isMemberRequest, pushLine, bangkokToday, readBody } from '../lib/server.js'
+import { adminClient, isCron, isMemberRequest, pushLine, bangkokToday, readBody, viewUrl } from '../lib/server.js'
 import { buildDigest } from '../lib/messages.js'
 import { flexMessage } from '../lib/lineCards.js'
 import { addDays } from '../src/dates.js'
@@ -58,7 +58,7 @@ export default async function handler(req, res) {
 
     const m = buildDigest(await rdTasks(supa, today), today, { weekend: mode === 'test' || prefs.weekend !== false })
     if (!m) { res.status(200).json({ sent: false, reason: 'weekend message is off' }); return }
-    await pushLine([flexMessage(m)])
+    await pushLine([flexMessage(m, { link: await viewUrl(supa) })])
     if (mode === 'auto' && !prefs.missing) {
       await supa.from('worklog_settings').upsert({ key: 'digest_sent', value: { day: today, at: new Date().toISOString(), by: cron ? 'cron' : 'app' }, updated_at: new Date().toISOString() })
     }

@@ -121,6 +121,14 @@ export async function restoreTask(row) {
   return data
 }
 
+// ── The secret view link: the plan without signing in (api/view) ──
+export async function fetchView(token) {
+  const res = await fetch(`${API_BASE}/api/view?t=${encodeURIComponent(token)}`, { cache: 'no-store' })
+  const body = await res.json().catch(() => ({}))
+  if (!res.ok) throw Object.assign(new Error(body.error || `Could not load (${res.status})`), { status: res.status })
+  return { tasks: (body.tasks || []).map(auto), notes: body.notes || [], lastRun: body.lastRun || null }
+}
+
 // ── Settings the server also reads (worklog_settings, SETUP.md part F) ──
 // e.g. 'digest' → { daily, weekend }. null = the table isn't there yet.
 const missingTable = e => /worklog_settings|42P01|PGRST205|does not exist|schema cache/.test(`${e?.code} ${e?.message}`)

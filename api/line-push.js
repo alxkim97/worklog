@@ -1,4 +1,4 @@
-import { adminClient, isMemberRequest, pushLine, lineReady, readBody } from '../lib/server.js'
+import { adminClient, isMemberRequest, pushLine, lineReady, readBody, viewUrl, relink } from '../lib/server.js'
 
 // Relays a message from the desktop app to Alex's LINE (Push API, one user —
 // never Broadcast: the LINE account is shared with other apps' friends).
@@ -19,6 +19,7 @@ export default async function handler(req, res) {
     let message
     if (body.flex && typeof body.flex === 'object') {
       if (JSON.stringify(body.flex).length > 28000) { res.status(400).json({ error: 'card too large' }); return }
+      relink(body.flex, await viewUrl(supa))
       message = { type: 'flex', altText: String(body.altText || 'WorkLog').slice(0, 400), contents: body.flex }
     } else {
       const text = String(body.text || '').trim().slice(0, 4900)

@@ -1,4 +1,4 @@
-import { isConfigured } from './config.js'
+import { isConfigured, WEB_URL } from './config.js'
 import { getSession, onAuthChange, isMember, fetchTasks, fetchNotes, lastSyncRun, triggerSync, updateTask, addNote, deleteNote, signOut } from './data.js'
 import { state, savePrefs, cacheData, restoreCache, clearCache, counts, isProduction } from './store.js'
 import { today, addDays, addMonths, timeAgo } from './dates.js'
@@ -23,8 +23,8 @@ import { renderSummary, summaryTitle, moveSummary, sumMode, summaryFileName, ret
 import { openReport } from './report.js'
 import { postLine, postDigest } from './line.js'
 import { startDigest } from './digest.js'
-import { getSetting, setSetting } from './data.js'
-import { readOnly, leaveViewMode } from './viewMode.js'
+import { getSetting, setSetting, fetchView } from './data.js'
+import { readOnly, viewToken, leaveViewMode, newToken } from './viewMode.js'
 
 const root = document.getElementById('app')
 const PHONE = window.matchMedia('(max-width: 859px)')
@@ -36,6 +36,8 @@ applyTheme(state.prefs.theme)
 // ── Boot / auth ──────────────────────────────────────────────────────────
 async function boot() {
   if (!isConfigured() && import.meta.env.MODE !== 'demo') return renderNotConfigured(root)
+  // The secret view link: no sign-in, read-only, the plan from api/view.
+  if (viewToken) { state.member = true; return load() }
   state.session = await getSession()
   onAuthChange(session => {
     const was = state.session?.user?.id
@@ -62,6 +64,7 @@ async function start() {
 
 let remindersStarted = false
 async function load({ quiet = false } = {}) {
+  if (viewToken) return loadView({ quiet })
   try {
     const [tasks, notes, run] = await Promise.all([fetchTasks(), fetchNotes(), lastSyncRun()])
     // what you saw last (cache or previous load) vs. now: PV / R&D-line moves
@@ -70,8 +73,24 @@ async function load({ quiet = false } = {}) {
     cacheData()
     // the server-side switches (daily digest, weekend message); null = SQL part F not run
     getSetting('digest').then(v => { state.digest = v; if (state.view === 'settings') render() }, () => {})
+    getSetting('view_link').then(v => { state.viewLink = v; if (state.view === 'settings') render() }, () => {})
     if (!remindersStarted) { remindersStarted = true; startReminders(id => openEditor({ id }, render)); startDigest() }
   } catch (e) {
+    if (!quiet) toast(e.message || 'Could not load')
+  }
+  render()
+}
+
+// View link: the same plan, fetched with the token; nothing cached, no
+// alerts, no reminders (this is someone looking, not the app running).
+async function loadView({ quiet }) {
+  try {
+    Object.assign(state, await fetchView(viewToken), { loaded: true })
+  } catch (e) {
+    if (!state.loaded) {
+      root.innerHTML = `<div class="auth"><div class="auth-card"><div class="brand big"><img class="logo" src="./favicon.svg" alt=""><span>WorkLog</span></div><h2>${e.status === 403 ? 'This link no longer works' : 'Can’t load WorkLog'}</h2><p class="auth-sub">${esc(e.message)}</p><button class="btn primary" onclick="location.reload()">Try again</button></div></div>`
+      return
+    }
     if (!quiet) toast(e.message || 'Could not load')
   }
   render()
@@ -106,6 +125,7 @@ async function sync({ quiet = false } = {}) {
 }
 
 function maybeAutoSync() {
+  if (viewToken) return
   const last = state.lastRun?.started_at
   if (!last || Date.now() - new Date(last) > SYNC_STALE_MS) sync({ quiet: true })
 }
@@ -290,7 +310,7 @@ function move(dir) {
 
 // ── Interaction (one delegated handler) ──────────────────────────────────
 // View mode (the LINE card's link, ?view=1): looking only.
-const VIEW_BLOCKED = new Set(['new', 'cycle', 'del-note', 'digest-daily', 'digest-weekend', 'digest-test', 'test-line', 'line', 'login', 'clear-changes'])
+const VIEW_BLOCKED = new Set(['new', 'cycle', 'del-note', 'digest-daily', 'digest-weekend', 'digest-test', 'test-line', 'line', 'login', 'clear-changes', 'view-make', 'view-off', 'view-copy'])
 const NEXT_STATUS = { pending: 'in_progress', in_progress: 'done', done: 'pending', deferred: 'pending' }
 
 async function cycleStatus(id) {
@@ -322,6 +342,17 @@ async function onClick(e) {
   if (readOnly && VIEW_BLOCKED.has(act)) return toast('View mode — open the full app to change things')
   switch (act) {
     case 'leave-view': return leaveViewMode()
+    case 'view-make': {
+      const next = { token: newToken(), made: new Date().toISOString() }
+      try { await setSetting('view_link', next); state.viewLink = next; toast(value === 'new' ? 'New link made — the old one stopped working' : 'View link made'); render() } catch (err) { toast(err.message) }
+      return
+    }
+    case 'view-off':
+      try { await setSetting('view_link', {}); state.viewLink = {}; toast('View link switched off'); render() } catch (err) { toast(err.message) }
+      return
+    case 'view-copy':
+      navigator.clipboard.writeText(`${WEB_URL}/?v=${state.viewLink?.token}`).then(() => toast('Link copied'), () => toast('Couldn’t copy'))
+      return
     case 'digest-daily':
     case 'digest-weekend': {
       const next = { daily: true, weekend: true, ...(state.digest || {}), [act === 'digest-daily' ? 'daily' : 'weekend']: value === 'on' }
@@ -385,9 +416,9 @@ async function onClick(e) {
       if (!(await askPermission())) return toast(canNotify() ? 'Notifications are blocked — allow them for WorkLog first' : 'Notifications aren’t available here')
       testNotification()
       return
-    case 'sync': return sync()
+    case 'sync': return viewToken ? load() : sync()
     case 'export': return exportCsv(state.tasks)
-    case 'signout': await signOut(); return
+    case 'signout': if (readOnly) return leaveViewMode(); await signOut(); return
     case 'update': return window.electronAPI?.checkForUpdates()
     case 'del-note': {
       const note = state.notes.find(n => n.id === id)
@@ -510,6 +541,9 @@ document.addEventListener('keydown', e => {
 
 // iOS ignores user-scalable=no; block pinch zoom like Coin does.
 for (const ev of ['gesturestart', 'gesturechange']) document.addEventListener(ev, e => e.preventDefault(), { passive: false })
+// Brave, Chrome and LINE's in-app browser ignore user-scalable=no: stop a
+// two-finger move from zooming (CSS touch-action covers double-tap).
+document.addEventListener('touchmove', e => { if (e.touches.length > 1) e.preventDefault() }, { passive: false })
 
 window.electronAPI?.login?.get().then(v => { if (v != null) { state.loginOpen = v; if (state.view === 'settings') render() } }).catch(() => {})
 initUpdateReload({ isBusy: modalOpen })

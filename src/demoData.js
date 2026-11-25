@@ -148,3 +148,4 @@ export async function triggerSync() { await wait(900); lastRun.started_at = last
 const settings = { digest: { daily: true, weekend: true } }
 export const getSetting = async key => copy(settings[key] || {})
 export async function setSetting(key, value) { settings[key] = copy(value) }
+export async function fetchView() { await wait(); return { tasks: copy(tasks), notes: copy(notes), lastRun: copy(lastRun) } }
