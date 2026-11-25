@@ -803,6 +803,7 @@ button.change:hover { border-color: var(--border-2); }
 .ch-how { font-size: 12.5px; font-weight: 600; color: var(--amber); }
 .change.k-removed .ch-how { color: var(--red); }
 .change.k-added .ch-how { color: var(--green); }
+.change.k-note .ch-how { color: var(--text3); }
 
 /* ── PV checklist ── */
 .flag.cl { display: inline-flex; align-items: center; gap: 2px; background: var(--surface-2); color: var(--text2); text-transform: none; }
