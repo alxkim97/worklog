@@ -9,6 +9,7 @@ import { addDays } from '../src/dates.js'
 // Callers:
 //  - the desktop app at 08:30 (Bearer <user JWT>), body { mode: 'auto' }:
 //    sends unless today's digest already went out; { mode: 'test' } always sends.
+//  - the CLI (Bearer CRON_SECRET), body { mode: 'auto' | 'test' }.
 //  - Vercel Cron (Bearer CRON_SECRET, vercel.json), a fallback for days the PC
 //    is off: sends only if nothing went out yet today. (Hobby cron runs some
 //    time within its hour, so it's scheduled after 08:30, not at it.)
@@ -43,7 +44,9 @@ export default async function handler(req, res) {
     const supa = adminClient()
     const cron = isCron(req)
     if (!cron && !(await isMemberRequest(supa, req))) { res.status(401).json({ error: 'unauthorized' }); return }
-    const mode = cron ? 'auto' : (readBody(req).mode === 'test' ? 'test' : 'auto')
+    // Vercel Cron sends a bare GET (auto). The CLI (scripts/worklog-claude.js)
+    // also uses CRON_SECRET and may ask for a test card.
+    const mode = readBody(req).mode === 'test' ? 'test' : 'auto'
     const today = bangkokToday()
 
     const prefs = await setting(supa, 'digest')

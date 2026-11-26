@@ -1,9 +1,10 @@
-import { adminClient, isMemberRequest, pushLine, lineReady, readBody, viewUrl, relink } from '../lib/server.js'
+import { adminClient, isCron, isMemberRequest, pushLine, lineReady, readBody, viewUrl, relink } from '../lib/server.js'
 
 // Relays a message from the desktop app to Alex's LINE (Push API, one user —
 // never Broadcast: the LINE account is shared with other apps' friends).
 // Caller: the desktop app, Authorization: Bearer <user JWT>, accepted only
-// for a row in worklog_members.
+// for a row in worklog_members; or the CLI (scripts/worklog-claude.js) with
+// Bearer CRON_SECRET.
 // Body: { text } or { flex, altText } (a Flex bubble from lib/lineCards.js).
 // Env: SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY, LINE_CHANNEL_TOKEN (channel
 // access token), LINE_USER_ID (LINE Developers → channel → Basic settings →
@@ -14,7 +15,7 @@ export default async function handler(req, res) {
   try {
     if (!lineReady()) { res.status(503).json({ error: 'LINE is not set up on the server yet (LINE_CHANNEL_TOKEN / LINE_USER_ID)' }); return }
     const supa = adminClient()
-    if (!(await isMemberRequest(supa, req))) { res.status(401).json({ error: 'unauthorized' }); return }
+    if (!isCron(req) && !(await isMemberRequest(supa, req))) { res.status(401).json({ error: 'unauthorized' }); return }
     const body = readBody(req)
     let message
     if (body.flex && typeof body.flex === 'object') {

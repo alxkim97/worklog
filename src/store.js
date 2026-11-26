@@ -130,34 +130,6 @@ export function counts() {
   }
 }
 
-// PV lots: sheet pv_lot rows grouped into one card per product + lot.
-export function pvLots() {
-  const lots = new Map()
-  for (const t of state.tasks) {
-    if (t.type !== 'pv_lot' || !isSheet(t)) continue
-    // Steps can carry a Thai prefix (e.g. 'prepare coating solution …') — group on the product itself.
-    const name = (t.product_name || t.title).replace(/^[^A-Za-z0-9]+/, '')
-    const key = `${name}|${t.lot_number || ''}`
-    if (!lots.has(key)) lots.set(key, { key, name, lot: t.lot_number, steps: [] })
-    lots.get(key).steps.push(t)
-  }
-  const out = [...lots.values()].map(l => {
-    l.steps.sort((a, b) => (a.due_date || '').localeCompare(b.due_date || '') || stepRank(a.step) - stepRank(b.step))
-    l.first = l.steps[0]?.due_date
-    l.last = l.steps[l.steps.length - 1]?.due_date
-    l.done = l.steps.filter(s => s.status === 'done').length
-    return l
-  })
-  const t = today()
-  // Active/upcoming first (by next date), finished ones after.
-  return out.sort((a, b) => ((a.last < t) - (b.last < t)) || (a.last < t ? b.last.localeCompare(a.last) : a.first.localeCompare(b.first)))
-}
-
-export function searchTasks(q) {
-  const s = q.trim().toLowerCase()
-  if (!s) return []
-  return state.tasks.filter(t => [t.title, t.product_name, t.lot_number, t.notes, t.sheet_path]
-    .some(v => v && String(v).toLowerCase().includes(s)))
-    .sort((a, b) => (b.due_date || '').localeCompare(a.due_date || ''))
-    .slice(0, 200)
-}
+// PV lots and search: shared logic in lib/rd.js (also used by the CLI).
+export const pvLots = () => sharedPvLots(state.tasks, today())
+export const searchTasks = q => sharedSearch(state.tasks, q)

@@ -11,13 +11,30 @@ the same setup as Coin.
 | `npm install` | Install dependencies |
 | `npm run dev` | Browser dev server (also reachable from your phone on the same Wi-Fi) |
 | `npm run demo` | Same, with fake in-memory data instead of Supabase — for design work |
-| `npm test` | Sheet-parser tests |
+| `npm test` | Unit tests (sheet parser, plan changes, messages, CLI) |
 | `npm run build` | Build the web app into `dist/` |
 | `npm run electron:dev` | Desktop app against the dev server |
 | `npm run electron:build` | Build + package the Windows installer into `release/` |
 | `npm run release` | Build installer and publish it as a GitHub Release (auto-update) |
 | `npm run backup` | Save every row to `backups/` (needs `.env.local`, see the script) |
 | `npm run shots -- file.json` | Screenshot the running app (see `scripts/shots.example.json`) |
+| `npm run wl -- <command>` | Claude's CLI on the live data (`npm run wl -- help`); see below |
+
+### Claude CLI (`scripts/worklog-claude.js`)
+
+Read and edit the live data from a terminal, the same shape as Coin's
+`coin-claude.js`. Needs `.env.local` (gitignored) with
+`SUPABASE_SERVICE_ROLE_KEY` (Supabase secret key) and, for Orbit, `CRON_SECRET`
+(same value as in Vercel).
+
+- Read: `status`, `today [--date D]`, `week [--from D]`, `list --from D [--to D] [--q text]`,
+  `pv [--all]`, `show <id>`, `overdue`, `search <text>`, `notes`, `changes [--save]`, `log`. Add `--json` for raw rows.
+- Write: `add`, `edit`, `delete`, `set-status`, `note-add`, `note-delete`, `tick`, `remind`, `undo`.
+  **Dry run unless `--apply`.** Applied changes are logged with their old values
+  in `cli-log/changes.jsonl` (gitignored); `undo [n] --apply` reverses one.
+- Plan rows from the sheet: only status, notes, remind_days and checklist can change; they can't be deleted.
+- Orbit: `digest [--test] --apply`, `line '<text>' --apply` (through `api/digest` / `api/line-push`).
+- Ids: the 8-character `#short` id printed in the output, or the full uuid.
 
 **Bump `version` in package.json on every change** — it's shown in the app
 (sidebar / Settings) so it's obvious which build is running.

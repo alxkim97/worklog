@@ -8,6 +8,8 @@ release/
 # real sheet snapshots can contain production plan data
 test/fixtures/*.private.json
 backups/
+# CLI change log + plan snapshot (live data)
+cli-log/
 .shots/
 *-tmp.*
 .secrets/

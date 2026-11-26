@@ -1,6 +1,7 @@
 import { createClient } from '@supabase/supabase-js'
 import { SUPABASE_URL, SUPABASE_ANON_KEY, API_BASE, isConfigured } from './config.js'
 import { today, addDays } from './dates.js'
+import { autoDone } from '../lib/rd.js'
 
 export const supa = isConfigured() ? createClient(SUPABASE_URL, SUPABASE_ANON_KEY) : null
 
@@ -28,11 +29,8 @@ export async function isMember(userId) {
 // Everything from ~4 months back onward, plus anything of yours still open
 // however old it is (so an overdue task never silently drops out of view).
 const HISTORY_DAYS = 120
-// Production-plan steps whose date has passed happened as planned — nobody
-// ticks them off. Show them as done (display only; the row isn't changed)
-// unless you've set a status yourself.
-const auto = r => r.source === 'sheet' && r.status === 'pending' && r.due_date && r.due_date < today()
-  ? { ...r, status: 'done', auto_done: true } : r
+// Past plan steps show as done unless you set a status (lib/rd.js autoDone).
+const auto = r => autoDone(r, today())
 
 const BASE_COLS = 'id,title,type,status,priority,start_date,due_date,lot_number,product_name,section,step,assignee,notes,source,sheet_ref,sheet_path,sheet_removed_at,done_at,created_at,updated_at'
 // Columns added after v2.0 (supabase/SETUP.md parts D and E). Until their SQL
