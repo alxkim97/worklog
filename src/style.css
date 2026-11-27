@@ -1202,3 +1202,82 @@ img.logo, .logo { box-shadow: none; }
 /* version + name always visible at the bottom of the scrolling sidebar */
 .sidebar { padding-bottom: 0; }
 .sidebar .sidebar-foot { position: sticky; bottom: 0; z-index: 3; margin-top: auto; padding: 8px 0 12px; background: var(--side); box-shadow: 0 -10px 12px -2px var(--side); }
+
+/* ═══════════════ v2.8 ═══════════════ */
+/* Sidebar: brand, nav and mini month fixed at the top; only attention and the
+   two days scroll; the foot stays at the bottom. */
+.shell.desktop { position: relative; }
+.sidebar { overflow: hidden !important; gap: 0; padding: 16px 12px 0; }
+.sb-top { flex: none; display: flex; flex-direction: column; gap: 14px; padding-bottom: 12px; }
+.sb-scroll { flex: 1 1 auto; min-height: 0; overflow-y: auto; display: flex; flex-direction: column; gap: 14px; margin: 0 -12px; padding: 12px 12px 10px; border-top: 1px solid var(--side-2); scrollbar-width: thin; scrollbar-color: var(--side-3) transparent; }
+.sidebar .sidebar-foot { position: static; flex: none; margin: 0 -12px; padding: 6px 12px 12px; box-shadow: none; border-top: 1px solid var(--side-2); }
+.pin-btn.pin-on { color: var(--side-ink); }
+.pin-btn.pin-on > .ico { color: #34d399; }
+.pin-btn em { margin-left: auto; display: flex; align-items: center; gap: 3px; font-style: normal; font-size: 11px; font-weight: 650; color: var(--side-mute); }
+
+/* The « handle, in the middle of the sidebar's right edge */
+.sb-handle { position: absolute; z-index: 30; top: 50%; left: calc(var(--sidebar) - 13px); width: 26px; height: 26px; margin-top: -13px; border-radius: 50%; display: grid; place-items: center; background: var(--surface); color: var(--text2); border: 1px solid var(--border); box-shadow: 0 2px 8px rgba(0, 0, 0, .18); transition: background .15s, color .15s, border-color .15s; }
+.sb-handle:hover { background: var(--accent); border-color: var(--accent); color: #fff; }
+.sb-handle:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.collapsed .sb-handle .ico { transform: rotate(180deg); }
+
+/* Collapsed: a 56px icon strip (icon, +, nav with the red count, pin, sync) */
+.shell.desktop.collapsed { --sidebar: 56px; grid-template-columns: var(--sidebar) minmax(0, 1fr); }
+.shell.desktop.collapsed .sidebar { display: flex; padding: 14px 0 0; align-items: center; }
+.collapsed .sb-top { align-items: center; gap: 12px; }
+.collapsed .sidebar .brand { flex-direction: column; padding: 0; gap: 12px; }
+.collapsed .sidebar .brand > span, .collapsed .sidebar .mini, .collapsed .sb-scroll, .collapsed .sidebar .version,
+.collapsed .sidebar-foot .sync-btn > span, .collapsed .sidebar-foot .sync-btn > em { display: none; }
+.collapsed .sidebar .new-sq { margin: 0; }
+.collapsed .sidebar nav { align-items: center; padding-top: 10px; border-top: 1px solid var(--side-2); }
+.collapsed .sidebar .nav-item { width: 40px; height: 38px; padding: 0; justify-content: center; position: relative; }
+.collapsed .sidebar .nav-item > span { display: none; }
+.collapsed .sidebar .nav-badge { position: absolute; top: 2px; right: 1px; min-width: 16px; height: 16px; padding: 0 4px; font-size: 10px; margin: 0; }
+.collapsed .sidebar .sidebar-foot { margin: auto 0 0; width: 40px; padding: 6px 0 12px; align-items: center; }
+.collapsed .sidebar-foot .sync-btn { width: 40px; padding: 0; justify-content: center; }
+
+/* Top bar: Today ‹ › first, title in a fixed box, Week | Month at the right */
+.topbar .period { gap: 2px; flex: none; }
+.topbar .period .btn { margin-right: 6px; }
+.topbar h1.fixed { width: 190px; flex: none; overflow: hidden; text-overflow: ellipsis; font-variant-numeric: tabular-nums; }
+
+/* Plan changes: the sidebar row (count + Show) */
+.chg-row { align-items: center; }
+.chg-row em { margin-left: auto; flex: none; font-style: normal; font-size: 11.5px; font-weight: 700; color: #1f2025; background: #ffd89a; border-radius: 6px; padding: 2px 8px; }
+.chg-row.on em { background: var(--side-3); color: var(--side-ink); }
+.pattn .chg-row em { background: var(--accent-weak); color: var(--accent-ink); }
+
+/* Plan changes: the lot strip above the calendar */
+.chg-strip { flex: none; display: flex; align-items: stretch; gap: 8px; padding: 8px 22px; overflow-x: auto; scrollbar-width: none; background: color-mix(in srgb, var(--warn) 9%, var(--surface)); border-bottom: 1px solid color-mix(in srgb, var(--warn) 30%, var(--border)); }
+.chg-label { flex: none; align-self: center; margin-right: 4px; font-size: 11px; letter-spacing: .07em; text-transform: uppercase; color: color-mix(in srgb, var(--warn) 75%, var(--text)); }
+.chg-lot { flex: 0 1 auto; min-width: 0; max-width: 400px; display: grid; grid-template-columns: 4px minmax(0, auto); gap: 1px 9px; padding: 7px 12px 7px 8px; border-radius: 9px; background: var(--surface); border: 1px solid var(--border); text-align: left; cursor: pointer; transition: border-color .15s, box-shadow .15s; }
+.chg-lot:hover { border-color: color-mix(in srgb, var(--warn) 60%, var(--border)); }
+.chg-lot.on { border-color: var(--warn); box-shadow: 0 0 0 2px color-mix(in srgb, var(--warn) 35%, transparent); }
+.chg-lot > i { grid-row: span 2; border-radius: 2px; background: var(--c); }
+.chg-lot > b, .chg-lot > small { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.chg-lot > b { font-size: 13px; font-weight: 650; color: var(--text); }
+.chg-lot .tg { font-size: 10px; font-weight: 800; padding: 0 5px; border-radius: 4px; background: var(--c); color: #fff; margin-left: 6px; vertical-align: 1px; }
+.chg-lot em { font-style: normal; font-weight: 500; font-size: 12px; color: var(--text3); margin-left: 6px; }
+.chg-lot > small { font-size: 12px; color: var(--text2); }
+.chg-hide { flex: none; margin-left: auto; align-self: center; display: flex; align-items: center; gap: 4px; white-space: nowrap; font-size: 12.5px; font-weight: 650; color: var(--text2); padding: 6px 10px; border-radius: 8px; }
+.chg-hide:hover { background: var(--surface-2); color: var(--text); }
+
+/* Ghost: a moved step's old day */
+.ev.ghost, .wcard.ghost, .ev.ghost:hover, .wcard.ghost:hover { background: repeating-linear-gradient(135deg, color-mix(in srgb, var(--c) 12%, transparent) 0 6px, transparent 6px 12px); color: var(--text2); box-shadow: inset 0 0 0 1.5px color-mix(in srgb, var(--c) 75%, transparent); opacity: .75; cursor: default; }
+.ev.ghost .tx, .ev.ghost .st, .wcard.ghost .tx, .wcard.ghost .st { text-decoration: line-through; text-decoration-thickness: 1.5px; }
+.ev.ghost .tg, .wcard.ghost .tg { background: color-mix(in srgb, var(--c) 25%, transparent); color: var(--text2); }
+.wcard.ghost .st { color: var(--text3); }
+
+/* One lot picked: the rest dims; the slide copy flies above everything */
+.chg-focus .ev:not(.chg-hot), .chg-focus .wcard:not(.chg-hot) { opacity: .18; }
+.chg-focus .ghost.chg-hot { opacity: 1; box-shadow: inset 0 0 0 2px var(--warn); }
+.chg-fly { position: fixed; z-index: 200; margin: 0; pointer-events: none; box-shadow: 0 10px 24px rgba(20, 16, 40, .28); }
+@keyframes chg-pulse {
+  0% { box-shadow: 0 0 0 2px var(--cell), 0 0 0 4px var(--warn), 0 0 0 4px color-mix(in srgb, var(--warn) 60%, transparent); }
+  100% { box-shadow: 0 0 0 2px var(--cell), 0 0 0 4px var(--warn), 0 0 0 16px transparent; }
+}
+.chg-pulse { animation: chg-pulse .9s ease-out 2; }
+@media (prefers-reduced-motion: reduce) {
+  .chg-pulse { animation: none; outline: 3px solid var(--warn); outline-offset: 2px; }
+}
+@media print { .chg-strip, .sb-handle { display: none !important; } .ghost { display: none !important; } }

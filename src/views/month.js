@@ -3,7 +3,7 @@ import { today, addDays, weekStart, monthStart, dayNum, monthYear, longDate, isW
 import { taskRow, productionBlock, noteList, empty } from '../components.js'
 import { esc, icon } from '../ui.js'
 import { clashTitle, dayClashes } from '../clashes.js'
-import { itemsOn, chip } from '../activity.js'
+import { itemsOn, chip, ghostsOn, ghostChip } from '../activity.js'
 
 export const monthTitle = () => monthYear(state.cursor)
 
@@ -31,6 +31,8 @@ export function renderMonth() {
 function cell(d, month, t, max) {
   const { production, notes } = dayContent(d)
   const items = itemsOn(d)
+  const ghosts = ghostsOn(d)
+  const slots = Math.max(1, max - ghosts.length)
   const groups = groupByDept(production.filter(p => !items.includes(p)))
   const clash = clashTitle(d)
   const out = d.slice(0, 7) !== month
@@ -39,8 +41,9 @@ function cell(d, month, t, max) {
   return `
     <div class="${cls}" data-act="select" data-date="${d}" role="button" tabindex="0" aria-label="${esc(longDate(d))}${clash ? ', clash' : ''}">
       <div class="mg-num">${clash ? `<span class="clash-badge" title="Clash — ${esc(clash)}">!</span>` : ''}${notes.length ? `<span class="mg-note" title="${esc(notes.map(n => n.content).join(' · '))}">${icon('note', 12)}</span>` : ''}<b>${num}</b></div>
-      ${items.slice(0, max).map(chip).join('')}
-      ${items.length > max ? `<span class="mg-more">+${items.length - max} more</span>` : ''}
+      ${ghosts.map(ghostChip).join('')}
+      ${items.slice(0, slots).map(chip).join('')}
+      ${items.length > slots ? `<span class="mg-more">+${items.length - slots} more</span>` : ''}
       ${groups.length ? `<div class="mg-prod" title="Production: ${groups.map(g => `${esc(g.dept.label)} ${g.tasks.length}`).join(', ')}">${groups.map(g => `<span class="bar" style="--c:${g.dept.color};flex:${g.tasks.length}"></span>`).join('')}</div>` : ''}
     </div>`
 }

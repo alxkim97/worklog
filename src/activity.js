@@ -7,7 +7,7 @@ import { state, visible, onDay, isTracked, isRdLine, isSheet, byImportance } fro
 import { deptColor, deptLabel, TYPE_BY_KEY, statusLabel, statusButton } from './components.js'
 import { nameOf } from '../lib/rd.js'
 import { checklistProgress } from './checklists.js'
-import { markOf, MARK_LABEL } from './marks.js'
+import { markOf, marks, MARK_LABEL } from './marks.js'
 import { longDate, shortDate } from './dates.js'
 
 export const pvNo = t => { const m = `${t.product_name || ''} ${t.title || ''}`.match(/\bPV\s*(\d+)\b/i); return m ? `PV${m[1]}` : null }
@@ -42,6 +42,21 @@ const subline = t => {
 // Month cell chip: step · name · PV tag
 export const chip = t => `
   <div class="ev ${cls('', t)}" ${attrs(t)}>${kindOf(t) === 'mine' ? '' : `<b class="st">${esc(t.step || '')}</b>`}<span class="tx">${esc(shortName(t))}</span>${tag(t)}${markBadge(t)}</div>`
+
+// "Show changes" on: a moved step's old day gets a ghost (outlined, hatched,
+// struck through). Not clickable; the real step on its new day keeps its ring.
+export function ghostsOn(d) {
+  if (!state.showChanges) return []
+  return [...marks().values()]
+    .filter(c => c.kind === 'moved' && c.from === d && c.to !== d)
+    .map(c => ({ c, t: state.tasks.find(x => x.id === c.id) }))
+    .filter(g => g.t && visible(g.t))
+}
+const ghostAttrs = ({ t, c }) => `style="--c:${colorOf(t)}" data-ghost="${t.id}" title="${esc(`Was here. Moved to ${shortDate(c.to)}`)}"`
+export const ghostChip = g => `
+  <div class="ev ghost k-${kindOf(g.t)}" ${ghostAttrs(g)}><b class="st">${esc(g.t.step || '')}</b><span class="tx">${esc(shortName(g.t))}</span>${tag(g.t)}</div>`
+export const ghostCard = g => `
+  <div class="wcard ghost k-${kindOf(g.t)}" ${ghostAttrs(g)}><span class="st">${esc(lead(g.t))}${tag(g.t)}</span><span class="tx">${esc(shortName(g.t))}</span></div>`
 
 // Week board card: STEP + tag, then the name
 export const card = t => `

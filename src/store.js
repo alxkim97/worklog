@@ -11,7 +11,7 @@ const defaultPrefs = {
   hiddenDepts: [],             // dept keys switched off
   theme: 'system',             // system | light | dark
   planMode: 'week',            // the Plan view's last mode: week | month
-  collapsed: false,            // desktop: hide the nav sidebar + month day panel
+  collapsed: false,            // desktop: sidebar folded to a 56px icon strip (« handle or \)
   remindTime: '08:30',         // when reminders fire on their day
   pvRemind: null,              // extra heads-up before PV steps: days before (null = off; the daily digest covers the day)
   changeAlerts: true,          // notify when the sheet moves a PV / R&D-line step
@@ -44,6 +44,9 @@ export const state = {
   sumCursor: today(),          // anchor date for the R&D Summary (month or year)
   selected: today(),           // selected day in month view
   search: '',
+  showChanges: false,          // plan changes drawn on the calendar (ghosts + lot strip)
+  changeFocus: null,           // the lot (name|lot) picked in the strip
+  widgetOpen: false,           // desktop: the month widget is pinned
   prefs: loadPrefs(),
 }
 

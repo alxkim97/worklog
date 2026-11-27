@@ -23,8 +23,8 @@ export default defineConfig(({ mode }) => ({
         name: 'WorkLog',
         short_name: 'WorkLog',
         description: 'R&D plan on top of the production schedule',
-        theme_color: '#7c5cff',
-        background_color: '#0f0e17',
+        theme_color: '#7458ff',
+        background_color: '#1f2025',
         display: 'standalone',
         start_url: '/',
         icons: [

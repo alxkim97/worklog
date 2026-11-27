@@ -33,6 +33,7 @@ import { statusButton as statusButtonOf } from './components.js'
 import { initPopover, clearMark } from './popover.js'
 import { itemsOn, agendaItem } from './activity.js'
 import { monthStart, weekStart, dayNum, shortDate, isWeekend } from './dates.js'
+import { groupChanges } from '../lib/changeGroups.js'
 
 const root = document.getElementById('app')
 const PHONE = window.matchMedia('(max-width: 859px)')
@@ -186,19 +187,24 @@ const planSwitch = () => isPlan(state.view) ? `
     ${[['month', 'Month'], ['year', 'Year']].map(([v, l]) => `<button type="button" role="radio" aria-checked="${sumMode() === v}" class="${sumMode() === v ? 'on' : ''}" data-act="sum-mode" data-value="${v}">${l}</button>`).join('')}
   </div>` : ''
 
+// Google Calendar order: Today ‹ › at fixed spots, then the title in a
+// fixed-width box, so switching views or months never moves the arrows.
 const periodNav = () => hasPeriod() ? `
   <div class="period">
-    <button class="icon-btn" data-act="prev" aria-label="Previous">${icon('left')}</button>
     <button class="btn soft small" data-act="today">${state.view === 'summary' ? (sumMode() === 'year' ? 'This year' : 'This month') : 'Today'}</button>
+    <button class="icon-btn" data-act="prev" aria-label="Previous">${icon('left')}</button>
     <button class="icon-btn" data-act="next" aria-label="Next">${icon('right')}</button>
-    ${state.view === 'week' ? `<button class="icon-btn" data-act="print" title="Print or save this week as PDF" aria-label="Print week">${icon('printer', 18)}</button>` : ''}
-    ${state.view === 'summary' ? `<button class="icon-btn" data-act="print" title="Print or save this summary as PDF" aria-label="Print summary">${icon('printer', 18)}</button>
-      <button class="btn soft small report-btn" data-act="report" title="A Markdown report for a day or range">${icon('doc', 15)} Make report</button>` : ''}
   </div>` : ''
+const periodTools = () => state.view === 'week'
+  ? `<button class="icon-btn" data-act="print" title="Print or save this week as PDF" aria-label="Print week">${icon('printer', 18)}</button>`
+  : state.view === 'summary' ? `<button class="icon-btn" data-act="print" title="Print or save this summary as PDF" aria-label="Print summary">${icon('printer', 18)}</button>
+      <button class="btn soft small report-btn" data-act="report" title="A Markdown report for a day or range">${icon('doc', 15)} Make report</button>` : ''
 
+// Values stay all / pv / off in prefs.production; only the words changed.
+const LAYERS = [['all', 'Full plan'], ['pv', 'R&D work'], ['off', 'My tasks']]
 const layerToggle = () => isPlan(state.view) ? `
-  <div class="seg small" title="Production layer">
-    ${[['all', 'All'], ['pv', isPhone() ? 'PV' : 'PV + R&D'], ['off', 'Mine']].map(([v, l]) => `<button type="button" class="${state.prefs.production === v ? 'on' : ''}" data-act="layer" data-value="${v}">${l}</button>`).join('')}
+  <div class="seg small" title="What the calendar shows">
+    ${LAYERS.map(([v, l]) => `<button type="button" class="${state.prefs.production === v ? 'on' : ''}" data-act="layer" data-value="${v}">${l}</button>`).join('')}
   </div>` : ''
 
 function syncButton(compact) {
@@ -209,7 +215,14 @@ function syncButton(compact) {
   </button>`
 }
 
-const collapseBtn = () => `<button class="icon-btn collapse-btn" data-act="collapse" aria-label="${state.prefs.collapsed ? 'Show' : 'Hide'} sidebars" title="${state.prefs.collapsed ? 'Show' : 'Hide'} sidebars  ( \\ )">${icon('sidebar', 19)}</button>`
+// The round « handle on the sidebar's right edge; collapsed = a 56px icon strip.
+const sideHandle = () => `<button type="button" class="sb-handle" data-act="collapse" aria-label="${state.prefs.collapsed ? 'Show' : 'Hide'} sidebar" title="${state.prefs.collapsed ? 'Show' : 'Hide'} sidebar  ( \\ )">${icon('dleft', 16)}</button>`
+
+// Pin calendar to desktop: a real on/off state (main.cjs tells us when the
+// widget opens or closes, including from its own ✕).
+const pinButton = () => !window.electronAPI?.widget ? '' : state.widgetOpen
+  ? `<button class="sync-btn pin-btn pin-on" data-act="widget" title="The calendar is on your desktop. Click to close it.">${icon('pin', 16)}<span>Calendar pinned</span><em>${icon('check', 13)}on</em></button>`
+  : `<button class="sync-btn pin-btn" data-act="widget" title="Open the calendar widget on your desktop">${icon('pin', 16)}<span>Pin calendar to desktop</span></button>`
 
 const viewBar = () => readOnly ? `
   <div class="view-bar">${icon('eye', 16)}<span><b>View mode</b> — nothing can be changed here</span><button type="button" class="link" data-act="leave-view">Open full app</button></div>` : ''
@@ -221,31 +234,36 @@ function desktopShell() {
   return `
     <div class="shell desktop${collapsed ? ' collapsed' : ''}">
       <aside class="sidebar">
-        <div class="brand"><img class="logo" src="./favicon.svg" alt=""><span>WorkLog</span><button class="new-sq" data-act="new" title="New task  (N)" aria-label="New task">${icon('plus', 18)}</button></div>
-        <nav>
-          ${NAV.map(n => `<button class="nav-item${navOn(n.view) ? ' on' : ''}" data-act="nav" data-view="${n.view}">${icon(n.icon, 18)}<span>${n.label}</span>${badge[n.view] ? `<b class="nav-badge${n.view === 'plan' ? ' red' : ''}">${badge[n.view]}</b>` : ''}</button>`).join('')}
-        </nav>
-        ${miniMonth()}
-        ${attention()}
-        ${sideAgenda()}
+        <div class="sb-top">
+          <div class="brand"><img class="logo" src="./favicon.svg" alt=""><span>WorkLog</span><button class="new-sq" data-act="new" title="New task  (N)" aria-label="New task">${icon('plus', 18)}</button></div>
+          <nav>
+            ${NAV.map(n => `<button class="nav-item${navOn(n.view) ? ' on' : ''}" data-act="nav" data-view="${n.view}"${collapsed ? ` title="${n.label}${n.key ? `  (${n.key})` : ''}" aria-label="${n.label}"` : ''}>${icon(n.icon, 18)}<span>${n.label}</span>${badge[n.view] ? `<b class="nav-badge${n.view === 'plan' ? ' red' : ''}">${badge[n.view]}</b>` : ''}</button>`).join('')}
+          </nav>
+          ${miniMonth()}
+        </div>
+        <div class="sb-scroll">
+          ${attention()}
+          ${sideAgenda()}
+        </div>
         <div class="sidebar-foot">
-          ${window.electronAPI?.widget ? `<button class="sync-btn" data-act="widget" title="Open the calendar widget on your desktop">${icon('pin', 16)}<span>Pin calendar to desktop</span></button>` : ''}
+          ${pinButton()}
           ${syncButton(false)}<p class="version">v${__APP_VERSION__} · Alex Kim</p>
         </div>
       </aside>
+      ${sideHandle()}
       <main class="main">
         ${viewBar()}
         <header class="topbar">
-          ${collapseBtn()}
-          ${collapsed ? `<nav class="mini-nav">${NAV.filter(n => n.key).map(n => `<button class="icon-btn${navOn(n.view) ? ' on' : ''}" data-act="nav" data-view="${n.view}" title="${n.label}  (${n.key})" aria-label="${n.label}">${icon(n.icon, 18)}</button>`).join('')}<button class="icon-btn" data-act="new" title="New task  (N)" aria-label="New task">${icon('plus', 18)}</button></nav>` : ''}
-          ${planSwitch()}
-          <h1>${esc(viewTitle())}</h1>
           ${periodNav()}
+          <h1${hasPeriod() ? ' class="fixed"' : ''}>${esc(viewTitle())}</h1>
           <div class="topbar-right">
             ${layerToggle()}
+            ${periodTools()}
             <label class="search-box">${icon('search', 16)}<input type="search" id="search-input" placeholder="Search  /" value="${esc(state.search)}" autocomplete="off"></label>
+            ${planSwitch()}
           </div>
         </header>
+        ${changeStrip()}
         <div class="content view-${state.view}">${content()}</div>
       </main>
     </div>`
@@ -292,15 +310,34 @@ function attentionParts() {
   const overdue = state.tasks.filter(x => isTracked(x) && visible(x) && isOpen(x) && x.due_date && x.due_date < today()).sort((a, b) => a.due_date.localeCompare(b.due_date))
   const clashes = upcomingClashes(14).flatMap(({ d, clashes }) => clashes.map(c => ({ d, text: c.text })))
   const changes = [...marks().values()]
-  return { overdue, clashes, changes, count: overdue.length + clashes.length + changes.length }
+  const lots = groupChanges(changes)
+  return { overdue, clashes, changes, lots, count: overdue.length + clashes.length + lots.length }
 }
-function attentionBody({ overdue, clashes, changes }) {
-  const how = c => c.kind === 'moved' ? `moved ${c.from ? `from ${relDay(c.from)} ` : ''}to ${relDay(c.to)}` : c.kind === 'added' ? `new on ${relDay(c.to)}` : 'note changed'
+const plural = (n, word) => `${n} ${word}${n === 1 ? '' : 's'}`
+// Desktop: a count and Show (the lots go on the calendar). Phone: one line
+// per lot; tapping it starts the agenda at the lot's first new date.
+function attentionBody({ overdue, clashes, changes, lots }, phone) {
+  const lotRows = () => lots.map(g => `<button type="button" class="at-row" data-act="pday" data-date="${g.firstTo || ''}"><span><b>${esc(g.title)}${g.pv ? ` · ${g.pv}` : ''}</b><small>${esc(g.text)}</small></span></button>`).join('')
+  const showRow = () => `<button type="button" class="at-row chg-row${state.showChanges ? ' on' : ''}" data-act="show-changes" aria-pressed="${!!state.showChanges}"><span><b>${plural(lots.length, 'lot')} changed</b><small>${plural(changes.length, 'step')} moved or new</small></span><em>${state.showChanges ? 'Hide' : 'Show'}</em></button>`
   return [
     overdue.length ? `<div class="at-group at-late"><h6>Overdue</h6>${overdue.map(x => `<div class="at-row" data-act="open" data-id="${x.id}" data-pop="${x.id}">${statusButtonOf(x)}<span><b>${esc(plainName(x))}</b><small>${esc(relDay(x.due_date))} · ${esc(relHint(x.due_date))}</small></span></div>`).join('')}</div>` : '',
     clashes.length ? `<div class="at-group at-clash"><h6>Clashes</h6>${clashes.map(c => `<button type="button" class="at-row" data-act="day" data-date="${c.d}"><span title="${esc(c.text)}"><b>${esc(relDay(c.d))}</b><small class="one">${esc(c.text)}</small></span></button>`).join('')}</div>` : '',
-    changes.length ? `<div class="at-group at-change"><h6>Plan changes<button type="button" data-act="clear-changes">Clear all</button></h6>${changes.map(c => `<button type="button" class="at-row" data-act="open" data-id="${c.id}"><span><b>${esc(c.name)}${c.step ? ` · ${esc(c.step)}` : ''}</b><small>${esc(how(c))}</small></span></button>`).join('')}</div>` : '',
+    lots.length ? `<div class="at-group at-change"><h6>Plan changes<button type="button" data-act="clear-changes">Clear all</button></h6>${phone ? lotRows() : showRow()}</div>` : '',
   ].join('')
+}
+
+// "Show changes": one card per product + lot above the calendar; each moved
+// step also gets a ghost on its old day (activity.js ghostsOn). Clicking a
+// card slides that lot's steps from old day to new and dims everything else.
+const lotColor = g => { const t = state.tasks.find(x => g.ids.includes(x.id)); return deptColorOf(t?.section || 'rd') }
+function changeStrip() {
+  if (!state.showChanges || !isPlan(state.view)) return ''
+  const lots = groupChanges([...marks().values()])
+  if (!lots.length) return ''
+  return `<div class="chg-strip"><b class="chg-label">Changes</b>${lots.map(g => `
+    <button type="button" class="chg-lot${state.changeFocus === g.key ? ' on' : ''}" data-act="change-lot" data-value="${esc(g.key)}" style="--c:${lotColor(g)}" title="${esc(g.name)}: ${esc(g.text)}">
+      <i></i><b>${esc(g.title)}${g.pv ? `<span class="tg">${g.pv}</span>` : ''}${g.lotShown ? `<em>Lot ${esc(g.lotShown)}</em>` : ''}</b><small>${esc(g.text)}</small>
+    </button>`).join('')}<button type="button" class="chg-hide" data-act="show-changes">Hide changes${icon('x', 14)}</button></div>`
 }
 function attention() {
   const parts = attentionParts()
@@ -310,8 +347,8 @@ function attention() {
 function phoneAttention() {
   const parts = attentionParts()
   if (!parts.count) return ''
-  const sum = [parts.overdue.length && `${parts.overdue.length} overdue`, parts.clashes.length && `${parts.clashes.length} clash${parts.clashes.length > 1 ? 'es' : ''}`, parts.changes.length && `${parts.changes.length} plan change${parts.changes.length > 1 ? 's' : ''}`].filter(Boolean).join(' · ')
-  return `<details class="pattn"${state.attnOpen ? ' open' : ''}><summary>${icon('alert', 16)}<span>${sum}</span>${icon('down', 16)}</summary><div class="attn-body">${attentionBody(parts)}</div></details>`
+  const sum = [parts.overdue.length && `${parts.overdue.length} overdue`, parts.clashes.length && `${parts.clashes.length} clash${parts.clashes.length > 1 ? 'es' : ''}`, parts.lots.length && `${plural(parts.lots.length, 'lot')} changed`].filter(Boolean).join(' · ')
+  return `<details class="pattn"${state.attnOpen ? ' open' : ''}><summary>${icon('alert', 16)}<span>${sum}</span>${icon('down', 16)}</summary><div class="attn-body">${attentionBody(parts, true)}</div></details>`
 }
 
 
@@ -357,6 +394,7 @@ function render() {
   const scroll = scroller && lastShell === state.view ? scroller.scrollTop : 0
   root.innerHTML = isPhone() ? phoneShell() : desktopShell()
   lastShell = state.view
+  decorateFocus()
   const sc = root.querySelector('.content')
   if (sc && scroll) sc.scrollTop = scroll
   if (searchFocused) {
@@ -492,7 +530,13 @@ async function onClick(e) {
     case 'theme': savePrefs({ theme: value }); applyTheme(value); return render()
     case 'collapse': return toggleCollapsed()
     case 'print': return printView()
-    case 'clear-changes': clearChanges(); return render()
+    case 'clear-changes': clearChanges(); state.showChanges = false; state.changeFocus = null; return render()
+    case 'show-changes':
+      state.showChanges = !state.showChanges
+      state.changeFocus = null
+      if (state.showChanges && !isPlan(state.view)) return setView('plan')
+      return render()
+    case 'change-lot': return focusLot(value)
     case 'change-alerts': savePrefs({ changeAlerts: value === 'on' }); if (value === 'on') askPermission(); return render()
     case 'widget': return window.electronAPI?.widget?.toggle()
     case 'pv-remind': savePrefs({ pvRemind: value === 'off' ? null : Number(value) }); if (value !== 'off') askPermission(); return render()
@@ -533,6 +577,63 @@ async function printView() {
 function toggleCollapsed() {
   savePrefs({ collapsed: !state.prefs.collapsed })
   render()
+}
+
+// ── Show changes: focus one lot ──
+const onScreen = d => !!root.querySelector(`.mg-day[data-date="${d}"], .col-h[data-date="${d}"]`)
+function focusLot(key) {
+  if (state.changeFocus === key) { state.changeFocus = null; return render() }
+  const g = groupChanges([...marks().values()]).find(x => x.key === key)
+  if (!g) return
+  state.changeFocus = key
+  // bring the new dates on screen first (a lot can move by weeks)
+  if (g.firstTo && !onScreen(g.firstTo)) { state.cursor = g.firstTo; state.selected = g.firstTo; state.miniCursor = null }
+  render()
+  slideLot(g)
+}
+// Everything outside the focused lot dims; its ghosts and steps stay lit.
+function decorateFocus() {
+  const content = root.querySelector('.shell.desktop .content')
+  if (!content || !state.showChanges || !state.changeFocus) return
+  const g = groupChanges([...marks().values()]).find(x => x.key === state.changeFocus)
+  if (!g) { state.changeFocus = null; return }
+  content.classList.add('chg-focus')
+  for (const id of g.ids) content.querySelectorAll(`[data-id="${id}"], [data-ghost="${id}"]`).forEach(e => e.classList.add('chg-hot'))
+}
+// A copy of each moved step flies from its ghost (old day) to the real block
+// (new day), one after another, then the ring pulses. Reduced motion: the
+// pair just lights up together.
+async function slideLot(g) {
+  const content = root.querySelector('.shell.desktop .content')
+  if (!content) return
+  const real = id => content.querySelector(`.ev[data-id="${id}"], .wcard[data-id="${id}"]`)
+  const pulse = el => { el.classList.remove('chg-pulse'); void el.offsetWidth; el.classList.add('chg-pulse') }
+  const reduce = matchMedia('(prefers-reduced-motion: reduce)').matches
+  const moved = g.items.filter(c => c.kind === 'moved' && c.from).sort((a, b) => a.from.localeCompare(b.from))
+  for (const c of moved) {
+    const to = real(c.id), from = content.querySelector(`[data-ghost="${c.id}"]`)
+    if (!to) continue
+    if (reduce || !from) { pulse(to); if (from) pulse(from); continue }
+    const a = from.getBoundingClientRect(), z = to.getBoundingClientRect()
+    const fly = to.cloneNode(true)
+    fly.querySelector('.mk')?.remove()
+    fly.classList.add('chg-fly')
+    fly.removeAttribute('data-act'); fly.removeAttribute('data-pop'); fly.removeAttribute('data-id')
+    Object.assign(fly.style, { left: `${a.left}px`, top: `${a.top}px`, width: `${a.width}px`, height: `${a.height}px` })
+    document.body.appendChild(fly)
+    to.style.visibility = 'hidden'
+    const dx = z.left - a.left, dy = z.top - a.top
+    // land once, whichever comes first: the animation ends, or 1 s passes
+    // (a hidden window never ticks the animation clock)
+    const land = () => { if (!fly.isConnected) return; fly.remove(); to.style.visibility = ''; pulse(to) }
+    fly.animate([
+      { transform: 'translate(0, 0) scale(1)', width: `${a.width}px`, height: `${a.height}px` },
+      { transform: `translate(${dx / 2}px, ${dy / 2 - 24}px) scale(1.06)`, offset: 0.5 },
+      { transform: `translate(${dx}px, ${dy}px) scale(1)`, width: `${z.width}px`, height: `${z.height}px` },
+    ], { duration: 640, easing: 'cubic-bezier(.3,.7,.25,1)' }).finished.then(land, land)
+    setTimeout(land, 1000)
+    await new Promise(r => setTimeout(r, 170))
+  }
 }
 
 // A day as a popup (month view with the sidebars hidden).
@@ -631,6 +732,10 @@ for (const ev of ['gesturestart', 'gesturechange']) document.addEventListener(ev
 // two-finger move from zooming (CSS touch-action covers double-tap).
 document.addEventListener('touchmove', e => { if (e.touches.length > 1) e.preventDefault() }, { passive: false })
 
+// Pin button state: ask once, then main.cjs reports every open/close.
+const refreshPin = open => { state.widgetOpen = !!open; const b = root.querySelector('.pin-btn'); if (b) b.outerHTML = pinButton() }
+window.electronAPI?.widget?.getState?.().then(s => refreshPin(s?.open)).catch(() => {})
+window.electronAPI?.widget?.onChange?.(refreshPin)
 window.electronAPI?.login?.get().then(v => { if (v != null) { state.loginOpen = v; if (state.view === 'settings') render() } }).catch(() => {})
 initUpdateReload({ isBusy: modalOpen })
 initPopover(root)

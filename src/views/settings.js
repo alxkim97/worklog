@@ -95,7 +95,7 @@ export function renderSettings({ isPhone }) {
     <section class="card">
       <header class="card-head"><h2>${icon('pin', 18)} Desktop widget</h2></header>
       <p class="setting-line">A small calendar that stays on your desktop.</p>
-      <button class="btn soft" data-act="widget">${icon('pin', 16)} Pin to desktop</button>
+      <button class="btn soft" data-act="widget">${icon('pin', 16)} ${state.widgetOpen ? 'Close the desktop calendar' : 'Pin to desktop'}</button>
       <p class="muted small">Drag it by its title bar, resize from the edges. The pin button on the widget keeps it above other windows.</p>
     </section>` : ''
 

@@ -96,6 +96,10 @@ function widgetBounds(saved) {
   return onScreen ? b : def
 }
 
+// Tell the main window when the widget opens or closes, so its pin button
+// shows the real state (the widget can also close itself with its own button).
+const widgetChanged = () => { if (mainWindow && !mainWindow.isDestroyed()) mainWindow.webContents.send('widget:changed', !!widgetWindow) }
+
 function createWidget() {
   if (widgetWindow) { widgetWindow.show(); widgetWindow.focus(); return }
   const saved = loadWidgetState()
@@ -131,8 +135,9 @@ function createWidget() {
   // Closed by hand (button, tray, Alt+F4) = stays closed next launch.
   // Closed because the app is quitting = comes back next launch.
   widgetWindow.on('close', () => { saveWidgetState({ bounds: widgetWindow.getBounds(), ...(isQuitting ? {} : { open: false }) }) })
-  widgetWindow.on('closed', () => { widgetWindow = null; if (tray) rebuildTrayMenu() })
+  widgetWindow.on('closed', () => { widgetWindow = null; if (tray) rebuildTrayMenu(); widgetChanged() })
   saveWidgetState({ open: true })
+  widgetChanged()
   if (tray) rebuildTrayMenu()
 }
 

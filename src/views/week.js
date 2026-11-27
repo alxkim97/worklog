@@ -3,7 +3,7 @@ import { today, addDays, weekStart, monthStart, weekday, dayNum, isWeekend, shor
 import { productionBlock, deptColor } from '../components.js'
 import { esc, icon } from '../ui.js'
 import { clashTitle } from '../clashes.js'
-import { itemsOn, card, block } from '../activity.js'
+import { itemsOn, card, block, ghostsOn, ghostCard } from '../activity.js'
 
 // "WorkLog Week 22-28 Nov 2026 (R.0_261123).pdf" — authored-file naming.
 export function printFileName() {
@@ -60,6 +60,7 @@ export function renderWeek({ isPhone } = {}) {
               <button type="button" class="icon-btn small add-day" data-act="new" data-date="${d}" aria-label="Add on ${esc(shortDate(d))}">${icon('plus', 16)}</button>
             </header>
             <div class="col-b">
+              ${ghostsOn(d).map(ghostCard).join('')}
               ${items.map(card).join('')}
               ${notes.map(n => `<div class="note-pill">${icon('note', 13)} ${esc(n.content)}</div>`).join('')}
               ${emptyDay ? `<p class="col-empty">${weekend ? '—' : 'Nothing for R&amp;D'}</p>` : ''}

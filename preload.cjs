@@ -18,5 +18,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
     getState: () => ipcRenderer.invoke('widget:state'),
     setOnTop: (on) => ipcRenderer.invoke('widget:on-top', on),
     openMain: (msg) => ipcRenderer.invoke('widget:open-main', msg),
+    // true/false whenever the widget opens or closes (main window's pin button)
+    onChange: (cb) => ipcRenderer.on('widget:changed', (_e, open) => cb(open)),
   },
 })
