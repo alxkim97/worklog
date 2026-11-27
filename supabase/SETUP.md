@@ -7,7 +7,7 @@ Order for the v2 upgrade:
 1. `npm run backup` (saves every row to `backups/` while the tables are still open)
 2. Block **A** (v1 schema — only needed on a brand-new project)
 3. Block **B** (v2 upgrade)
-4. Open the app, create your account (Sign up)
+4. Supabase → Authentication → Users → **Add user** (email + password, auto-confirm). The app has no sign-up screen.
 5. Block **C** with your email — the app shows this exact SQL on its "not a member yet" screen
 
 ## A — base tables (fresh project only)
@@ -201,7 +201,7 @@ create policy "members" on worklog_settings for all to authenticated
 | `SUPABASE_URL` | Project URL |
 | `SUPABASE_SERVICE_ROLE_KEY` | Project Settings → API → `service_role` (secret — Vercel only, never in the app) |
 | `GOOGLE_SERVICE_ACCOUNT` | Whole JSON key file of the Google service account |
-| `SHEET_ID` | `1GpGLBMrMC3OdVS8alpghKgTn_8PPG7hvT49XQJOrzNc` |
+| `SHEET_ID` | The production sheet's ID (from its URL). Also in `.env.local` for `scripts/snapshot-sheet.js`; never in this public repo |
 | `CRON_SECRET` | Any long random string |
 
 Share the production sheet with the service account's `client_email` as **Viewer**.

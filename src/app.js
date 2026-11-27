@@ -1,14 +1,14 @@
 import { isConfigured, WEB_URL } from './config.js'
 import { getSession, onAuthChange, isMember, fetchTasks, fetchNotes, lastSyncRun, triggerSync, updateTask, addNote, deleteNote, signOut } from './data.js'
-import { state, savePrefs, cacheData, restoreCache, clearCache, counts, isProduction } from './store.js'
+import { state, savePrefs, cacheData, restoreCache, clearCache, counts, isProduction, isSheet, isTracked, isOpen, visible, byImportance } from './store.js'
 import { today, addDays, addMonths, timeAgo } from './dates.js'
 import { esc, icon, toast, closeTopModal, modalOpen, openModal } from './ui.js'
+import { deptColor as deptColorOf } from './components.js'
 import { startReminders, testNotification, askPermission, canNotify } from './reminders.js'
 import { diffPlan, recordPlanChanges, clearChanges } from './planChanges.js'
 import { printFileName } from './views/week.js'
 import { renderAuth, renderNotMember, renderNotConfigured } from './views/auth.js'
-import { renderToday } from './views/today.js'
-import { renderWeek, weekTitle } from './views/week.js'
+import { renderWeek, weekTitle, phoneTitle } from './views/week.js'
 import { renderMonth, monthTitle, dayPanel } from './views/month.js'
 import { renderLots } from './views/lots.js'
 import { renderSettings, syncSummary } from './views/settings.js'
@@ -25,6 +25,14 @@ import { postLine, postDigest } from './line.js'
 import { startDigest } from './digest.js'
 import { getSetting, setSetting, fetchView } from './data.js'
 import { readOnly, viewToken, leaveViewMode, newToken } from './viewMode.js'
+import { marks, resetMarks } from './marks.js'
+import { upcomingClashes } from './clashes.js'
+import { relHint, relDay } from './dates.js'
+import { nameOf as plainName } from '../lib/rd.js'
+import { statusButton as statusButtonOf } from './components.js'
+import { initPopover, clearMark } from './popover.js'
+import { itemsOn, agendaItem } from './activity.js'
+import { monthStart, weekStart, dayNum, shortDate, isWeekend } from './dates.js'
 
 const root = document.getElementById('app')
 const PHONE = window.matchMedia('(max-width: 859px)')
@@ -32,6 +40,7 @@ const isPhone = () => PHONE.matches
 const SYNC_STALE_MS = 60 * 60 * 1000
 
 applyTheme(state.prefs.theme)
+state.view = state.prefs.planMode === 'week' ? 'week' : 'month'
 
 // ── Boot / auth ──────────────────────────────────────────────────────────
 async function boot() {
@@ -113,7 +122,8 @@ async function sync({ quiet = false } = {}) {
   render()
   try {
     const r = await triggerSync()
-    if (!quiet || r.added || r.removed) toast(r.added || r.removed ? `Plan updated · ${r.added} new${r.removed ? ` · ${r.removed} removed` : ''}` : 'Plan is up to date')
+    if (r.running) { if (!quiet) toast('A sync is already running — try again in a minute') }
+    else if (!quiet || r.added || r.removed) toast(r.added || r.removed ? `Plan updated · ${r.added} new${r.removed ? ` · ${r.removed} removed` : ''}${r.carried ? ` · kept your notes on ${r.carried} moved` : ''}` : 'Plan is up to date')
     state.syncing = false
     await load()
   } catch (e) {
@@ -144,14 +154,13 @@ document.addEventListener('visibilitychange', () => {
 const PLAN = ['week', 'month']
 const isPlan = v => PLAN.includes(v)
 const NAV = [
-  { view: 'today', label: 'Today', icon: 'sun', key: '1' },
-  { view: 'plan', label: 'Plan', icon: 'week', key: '2 / 3' },
-  { view: 'lots', label: 'PV lots', icon: 'flask', key: '4' },
-  { view: 'summary', label: 'Summary', icon: 'chart', key: '5' },
+  { view: 'plan', label: 'Plan', icon: 'week', key: '1 / 2' },
+  { view: 'lots', label: 'PV lots', icon: 'flask', key: '3' },
+  { view: 'summary', label: 'Summary', icon: 'chart', key: '4' },
   { view: 'settings', label: 'Settings', icon: 'settings' },
 ]
 const navOn = v => state.view === v || (v === 'plan' && isPlan(state.view))
-const TITLES = { today: 'Today', lots: 'PV lots', settings: 'Settings', search: 'Search' }
+const TITLES = { lots: 'PV lots', settings: 'Settings', search: 'Search' }
 const viewTitle = () => state.view === 'settings' && isPhone() ? 'More' : state.view === 'week' ? weekTitle() : state.view === 'month' ? monthTitle() : state.view === 'summary' ? summaryTitle() : TITLES[state.view]
 // Views with a period and back/forward arrows.
 const hasPeriod = () => isPlan(state.view) || state.view === 'summary'
@@ -160,12 +169,12 @@ function content() {
   const phone = isPhone()
   switch (state.view) {
     case 'week': return renderWeek({ isPhone: phone })
-    case 'month': return renderMonth({ wide: !phone && state.prefs.collapsed })
+    case 'month': return phone ? renderWeek({ isPhone: true }) : renderMonth()
     case 'lots': return renderLots()
     case 'summary': return renderSummary({ rerender: render })
     case 'settings': return renderSettings({ isPhone: phone })
     case 'search': return renderSearch({ isPhone: phone })
-    default: return renderToday()
+    default: return phone ? renderWeek({ isPhone: true }) : renderMonth()
   }
 }
 
@@ -207,16 +216,18 @@ const viewBar = () => readOnly ? `
 
 function desktopShell() {
   const c = counts()
-  const badge = { today: c.today + c.overdue || '', lots: '' }
+  const badge = { plan: c.overdue || '' }
   const collapsed = state.prefs.collapsed
   return `
     <div class="shell desktop${collapsed ? ' collapsed' : ''}">
       <aside class="sidebar">
-        <div class="brand"><img class="logo" src="./favicon.svg" alt=""><span>WorkLog</span></div>
-        <button class="btn primary block new-btn" data-act="new">${icon('plus', 18)} New task <kbd>N</kbd></button>
+        <div class="brand"><img class="logo" src="./favicon.svg" alt=""><span>WorkLog</span><button class="new-sq" data-act="new" title="New task  (N)" aria-label="New task">${icon('plus', 18)}</button></div>
         <nav>
-          ${NAV.map(n => `<button class="nav-item${navOn(n.view) ? ' on' : ''}" data-act="nav" data-view="${n.view}">${icon(n.icon, 18)}<span>${n.label}</span>${badge[n.view] ? `<b class="nav-badge${c.overdue && n.view === 'today' ? ' red' : ''}">${badge[n.view]}</b>` : ''}</button>`).join('')}
+          ${NAV.map(n => `<button class="nav-item${navOn(n.view) ? ' on' : ''}" data-act="nav" data-view="${n.view}">${icon(n.icon, 18)}<span>${n.label}</span>${badge[n.view] ? `<b class="nav-badge${n.view === 'plan' ? ' red' : ''}">${badge[n.view]}</b>` : ''}</button>`).join('')}
         </nav>
+        ${miniMonth()}
+        ${attention()}
+        ${sideAgenda()}
         <div class="sidebar-foot">
           ${window.electronAPI?.widget ? `<button class="sync-btn" data-act="widget" title="Open the calendar widget on your desktop">${icon('pin', 16)}<span>Pin calendar to desktop</span></button>` : ''}
           ${syncButton(false)}<p class="version">v${__APP_VERSION__} · Alex Kim</p>
@@ -240,29 +251,93 @@ function desktopShell() {
     </div>`
 }
 
+// ── Sidebar: mini month, today + tomorrow, plan changes ──
+const WD1 = ['S', 'M', 'T', 'W', 'T', 'F', 'S']
+const monthTitleOf = d => new Date(d + 'T00:00').toLocaleDateString('en-GB', { month: 'long', year: 'numeric' })
+function miniMonth() {
+  const base = state.miniCursor || state.cursor || today()
+  const first = monthStart(base)
+  const start = weekStart(first)
+  const weeks = addDays(start, 35).slice(0, 7) === first.slice(0, 7) ? 6 : 5
+  const t = today()
+  const wk = state.view === 'week' ? weekStart(state.cursor) : null
+  const cells = Array.from({ length: weeks * 7 }, (_, i) => addDays(start, i)).map(d => {
+    const colors = [...new Set(itemsOn(d).map(x => x.section || 'rd'))].slice(0, 3)
+    const cls = ['md', d.slice(0, 7) !== first.slice(0, 7) && 'out', d === t && 'is-today', wk && d >= wk && d <= addDays(wk, 6) && 'in-range'].filter(Boolean).join(' ')
+    return `<button type="button" class="${cls}" data-act="mini-day" data-date="${d}" aria-label="${esc(shortDate(d))}">${dayNum(d)}${colors.length && d !== t ? `<span class="dots">${colors.map(k => `<i style="--c:${deptColorOf(k)}"></i>`).join('')}</span>` : ''}</button>`
+  }).join('')
+  return `
+    <div class="mini">
+      <div class="mini-h"><b>${esc(monthTitleOf(first))}</b><span><button type="button" class="icon-btn small" data-act="mini-prev" aria-label="Previous month">${icon('left', 15)}</button><button type="button" class="icon-btn small" data-act="mini-next" aria-label="Next month">${icon('right', 15)}</button></span></div>
+      <div class="mini-grid">${WD1.map(w => `<span class="wd">${w}</span>`).join('')}${cells}</div>
+    </div>`
+}
+
+// Two days, by their real dates. Undated tasks fold in under them.
+function sideAgenda() {
+  const t = today()
+  const undated = state.tasks.filter(x => isTracked(x) && !x.due_date && isOpen(x)).sort(byImportance)
+  return `<div class="agenda">${[t, addDays(t, 1)].map(d => {
+    const items = itemsOn(d)
+    return `<div class="ag-day"><h5 class="${d === t ? 'now' : ''}"><span>${esc(relDay(d))}</span><span>${relHint(d)}</span></h5>
+      ${items.length ? items.map(agendaItem).join('') : `<p class="ag-none">${isWeekend(d) ? 'Weekend' : 'Nothing for R&amp;D'}</p>`}</div>`
+  }).join('')}
+  ${undated.length ? `<details class="ag-undated"><summary>No date <b>${undated.length}</b></summary>${undated.map(agendaItem).join('')}</details>` : ''}</div>`
+}
+
+// Needs attention: overdue, clashes in the next 14 days, plan changes.
+// Shown only when something is in it — in the sidebar on desktop, as a
+// fold at the top of the agenda on the phone.
+function attentionParts() {
+  const overdue = state.tasks.filter(x => isTracked(x) && visible(x) && isOpen(x) && x.due_date && x.due_date < today()).sort((a, b) => a.due_date.localeCompare(b.due_date))
+  const clashes = upcomingClashes(14).flatMap(({ d, clashes }) => clashes.map(c => ({ d, text: c.text })))
+  const changes = [...marks().values()]
+  return { overdue, clashes, changes, count: overdue.length + clashes.length + changes.length }
+}
+function attentionBody({ overdue, clashes, changes }) {
+  const how = c => c.kind === 'moved' ? `moved ${c.from ? `from ${relDay(c.from)} ` : ''}to ${relDay(c.to)}` : c.kind === 'added' ? `new on ${relDay(c.to)}` : 'note changed'
+  return [
+    overdue.length ? `<div class="at-group at-late"><h6>Overdue</h6>${overdue.map(x => `<div class="at-row" data-act="open" data-id="${x.id}" data-pop="${x.id}">${statusButtonOf(x)}<span><b>${esc(plainName(x))}</b><small>${esc(relDay(x.due_date))} · ${esc(relHint(x.due_date))}</small></span></div>`).join('')}</div>` : '',
+    clashes.length ? `<div class="at-group at-clash"><h6>Clashes</h6>${clashes.map(c => `<button type="button" class="at-row" data-act="day" data-date="${c.d}"><span title="${esc(c.text)}"><b>${esc(relDay(c.d))}</b><small class="one">${esc(c.text)}</small></span></button>`).join('')}</div>` : '',
+    changes.length ? `<div class="at-group at-change"><h6>Plan changes<button type="button" data-act="clear-changes">Clear all</button></h6>${changes.map(c => `<button type="button" class="at-row" data-act="open" data-id="${c.id}"><span><b>${esc(c.name)}${c.step ? ` · ${esc(c.step)}` : ''}</b><small>${esc(how(c))}</small></span></button>`).join('')}</div>` : '',
+  ].join('')
+}
+function attention() {
+  const parts = attentionParts()
+  if (!parts.count) return '<div class="attn" hidden></div>'
+  return `<div class="attn"><h5>Needs attention <b>${parts.count}</b></h5><div class="attn-body">${attentionBody(parts)}</div></div>`
+}
+function phoneAttention() {
+  const parts = attentionParts()
+  if (!parts.count) return ''
+  const sum = [parts.overdue.length && `${parts.overdue.length} overdue`, parts.clashes.length && `${parts.clashes.length} clash${parts.clashes.length > 1 ? 'es' : ''}`, parts.changes.length && `${parts.changes.length} plan change${parts.changes.length > 1 ? 's' : ''}`].filter(Boolean).join(' · ')
+  return `<details class="pattn"${state.attnOpen ? ' open' : ''}><summary>${icon('alert', 16)}<span>${sum}</span>${icon('down', 16)}</summary><div class="attn-body">${attentionBody(parts)}</div></details>`
+}
+
+
 function phoneShell() {
   const c = counts()
   const tabs = [
-    { view: 'today', label: 'Today', icon: 'sun', badge: c.overdue },
-    { view: 'plan', label: 'Plan', icon: 'week', also: PLAN },
-    { add: true },
+    { view: 'plan', label: 'Plan', icon: 'week', also: PLAN, badge: c.overdue },
     { view: 'lots', label: 'PV lots', icon: 'flask' },
-    { view: 'settings', label: 'More', icon: 'more', also: ['search', 'summary'] },
+    { add: true },
+    { view: 'summary', label: 'Summary', icon: 'chart' },
+    { view: 'settings', label: 'More', icon: 'more', also: ['search'] },
   ]
   return `
     <div class="shell phone">
       ${viewBar()}
       <header class="phone-top">
-        ${state.view === 'today' ? `<div class="brand"><img class="logo" src="./favicon.svg" alt=""><span>WorkLog</span></div>` : `<h1>${esc(viewTitle())}</h1>`}
+        ${isPlan(state.view) ? `<button type="button" class="ptitle${state.phoneMonth ? ' open' : ''}" data-act="phone-month" aria-expanded="${!!state.phoneMonth}">${esc(phoneTitle())}${icon('down', 18)}</button>` : `<h1>${esc(viewTitle())}</h1>`}
         <div class="phone-top-right">
           ${hasPeriod() ? `<button class="icon-btn" data-act="prev" aria-label="Previous">${icon('left')}</button><button class="icon-btn" data-act="next" aria-label="Next">${icon('right')}</button>` : ''}
           ${state.view !== 'search' ? `<button class="icon-btn" data-act="nav" data-view="search" aria-label="Search">${icon('search')}</button>` : ''}
           ${syncButton(true)}
         </div>
       </header>
-      ${isPlan(state.view) ? `<div class="phone-sub">${planSwitch()}${layerToggle()}<button class="btn soft small" data-act="today">Today</button></div>` : ''}
+      ${isPlan(state.view) ? `<div class="phone-sub">${layerToggle()}<button class="btn soft small" data-act="today">Today</button></div>` : ''}
       ${state.view === 'summary' ? `<div class="phone-sub">${planSwitch()}<button class="btn soft small" data-act="report">${icon('doc', 15)} Report</button></div>` : ''}
-      <main class="content view-${state.view}">${content()}</main>
+      <main class="content view-${state.view}">${isPlan(state.view) ? phoneAttention() : ''}${content()}</main>
       <nav class="tabbar">
         ${tabs.map(t => t.add
           ? `<button class="tab-add" data-act="new" aria-label="New task">${icon('plus', 26)}</button>`
@@ -274,6 +349,7 @@ function phoneShell() {
 let lastShell = ''
 function render() {
   if (!state.member) return
+  resetMarks()
   const active = document.activeElement
   const searchFocused = active?.id === 'search-input'
   const caret = searchFocused ? active.selectionStart : null
@@ -302,7 +378,9 @@ function setView(view) {
 }
 
 function move(dir) {
+  state.miniCursor = null
   if (state.view === 'summary') moveSummary(dir)
+  else if (isPlan(state.view) && isPhone() && state.phoneMonth) state.cursor = addMonths(state.cursor, dir)
   else if (state.view === 'week') state.cursor = addDays(state.cursor, 7 * dir)
   else if (state.view === 'month') { state.cursor = addMonths(state.cursor, dir); state.selected = state.cursor.slice(0, 7) === today().slice(0, 7) ? today() : state.cursor }
   render()
@@ -311,7 +389,10 @@ function move(dir) {
 // ── Interaction (one delegated handler) ──────────────────────────────────
 // View mode (the LINE card's link, ?view=1): looking only.
 const VIEW_BLOCKED = new Set(['new', 'cycle', 'del-note', 'digest-daily', 'digest-weekend', 'digest-test', 'test-line', 'line', 'login', 'clear-changes', 'view-make', 'view-off', 'view-copy'])
-const NEXT_STATUS = { pending: 'in_progress', in_progress: 'done', done: 'pending', deferred: 'pending' }
+// One tap: open → done, done → open. A past plan step reopens as in_progress
+// (stored only; it reads "To do"), since pending would show as auto-done again.
+const reopened = t => (isSheet(t) && t.due_date && t.due_date < today() ? 'in_progress' : 'pending')
+const nextStatus = t => (t.auto_done || t.status === 'done' ? reopened(t) : t.status === 'deferred' ? 'pending' : 'done')
 
 async function cycleStatus(id) {
   const t = state.tasks.find(x => x.id === id)
@@ -319,8 +400,7 @@ async function cycleStatus(id) {
   const prev = t.status
   const before = snapshot(t, { status: null }) // an auto-done step is 'pending' in the database
   const wasAuto = t.auto_done
-  // an auto-done plan step reopens as 'Doing' — 'To do' would just read as done again
-  t.status = t.auto_done ? 'in_progress' : NEXT_STATUS[prev]
+  t.status = nextStatus(t)
   delete t.auto_done
   render()
   try {
@@ -328,7 +408,7 @@ async function cycleStatus(id) {
     putTask(await updateTask(id, next))
     cacheData()
     render()
-    const label = { pending: 'To do', in_progress: 'Doing', done: 'Done', deferred: 'Later' }[next.status]
+    const label = next.status === 'done' ? 'Done' : 'To do'
     const entry = recordUpdate(`${nameOf(t)} → ${label}`, id, before, next)
     if (next.status === 'done') toast('Done ✓', { label: 'Undo', run: () => undoIf(entry) })
   } catch (e) { t.status = prev; if (wasAuto) t.auto_done = true; render(); toast(e.message) }
@@ -369,23 +449,29 @@ async function onClick(e) {
       return
     case 'nav': return setView(view)
     case 'new': return openEditor({ date: date || (state.view === 'month' ? state.selected : today()) }, render)
-    case 'open': return openEditor({ id }, render)
+    case 'open': clearMark(root, id); return openEditor({ id }, render)
     case 'cycle': e.stopPropagation(); return cycleStatus(id)
     case 'prev': return move(-1)
     case 'next': return move(1)
-    case 'today': state.cursor = today(); state.selected = today(); state.sumCursor = today(); return render()
+    case 'today': state.cursor = today(); state.selected = today(); state.sumCursor = today(); state.miniCursor = null; return render()
+    case 'mini-prev':
+    case 'mini-next': state.miniCursor = addMonths(monthStart(state.miniCursor || state.cursor), act === 'mini-next' ? 1 : -1); return render()
+    case 'mini-day':
+      state.cursor = date; state.selected = date; state.miniCursor = null
+      if (!isPlan(state.view)) return setView('plan')
+      render()
+      if (state.view === 'month') openDay(date)
+      return
+    case 'pday': state.cursor = date; state.selected = date; return render()
+    case 'phone-month': state.phoneMonth = !state.phoneMonth; return render()
+    case 'week-prod': savePrefs({ weekProd: !state.prefs.weekProd }); return render()
     case 'sum-mode': savePrefs({ sumMode: value }); return render()
     case 'sum-month': savePrefs({ sumMode: 'month' }); state.sumCursor = date; return render()
     case 'sum-retry': retrySummary(); return render()
     case 'report': return openReport()
     case 'select':
       state.selected = date
-      // sidebars hidden: no day panel on the page, so the day opens as a popup
-      if (state.view === 'month' && !root.querySelector('.day-panel')) { render(); return openDay(date) }
-      root.querySelectorAll('.mg-day.sel').forEach(x => x.classList.remove('sel'))
-      el.classList.add('sel')
-      refreshDay()
-      return
+      return openDay(date)
     case 'day': state.view = 'month'; state.cursor = date; state.selected = date; return render()
     case 'layer': savePrefs({ production: value }); return render()
     case 'line': savePrefs({ line: value === 'on' }); return render()
@@ -516,7 +602,7 @@ const textEntry = el => !!el?.closest?.('textarea, [contenteditable], select') |
   (el?.tagName === 'INPUT' && !['checkbox', 'radio', 'button', 'submit', 'reset'].includes(el.type))
 
 document.addEventListener('keydown', e => {
-  if (e.key === 'Escape') { if (closeTopModal()) return; if (state.view === 'search') { state.search = ''; setView('today') } return }
+  if (e.key === 'Escape') { if (closeTopModal()) return; if (state.view === 'search') { state.search = ''; setView('plan') } return }
   const k = e.key.toLowerCase()
   if ((e.ctrlKey || e.metaKey) && !e.altKey && (k === 'z' || k === 'y') && state.member) {
     if (textEntry(e.target) || readOnly) return
@@ -530,7 +616,7 @@ document.addEventListener('keydown', e => {
   const keys = {
     n: () => openEditor({ date: state.view === 'month' ? state.selected : today() }, render),
     t: () => { state.cursor = today(); state.selected = today(); render() },
-    '1': () => setView('today'), '2': () => setView('week'), '3': () => setView('month'), '4': () => setView('lots'), '5': () => setView('summary'),
+    '1': () => setView('week'), '2': () => setView('month'), '3': () => setView('lots'), '4': () => setView('summary'),
     '/': () => root.querySelector('#search-input')?.focus() ?? setView('search'),
     '\\': () => { if (!isPhone()) toggleCollapsed() },
     ArrowLeft: () => move(-1), ArrowRight: () => move(1),
@@ -547,6 +633,10 @@ document.addEventListener('touchmove', e => { if (e.touches.length > 1) e.preven
 
 window.electronAPI?.login?.get().then(v => { if (v != null) { state.loginOpen = v; if (state.view === 'settings') render() } }).catch(() => {})
 initUpdateReload({ isBusy: modalOpen })
+initPopover(root)
+// a ring cleared by hovering: refresh the sidebar's change list in place
+root.addEventListener('toggle', e => { if (e.target.classList?.contains('pattn')) state.attnOpen = e.target.open }, true)
+root.addEventListener('marks-changed', () => { const box = root.querySelector('.attn'); if (box) box.outerHTML = attention() })
 setUndoRender(render)
 boot()
 

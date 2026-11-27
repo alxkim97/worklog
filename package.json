@@ -1,6 +1,6 @@
 {
   "name": "worklog",
-  "version": "2.6.0",
+  "version": "2.7.0",
   "private": true,
   "description": "WorkLog — R&D planner on top of the APm production schedule",
   "author": "Alex · APm R&D",
@@ -11,23 +11,26 @@
     "demo": "vite --mode demo",
     "build": "vite build",
     "preview": "vite preview",
-    "test": "node --test test/*.test.js",
+    "test": "eslint . && node --test test/*.test.js",
     "backup": "node scripts/backup.js",
     "wl": "node scripts/worklog-claude.js",
     "electron": "electron .",
     "electron:dev": "electron . --dev",
     "electron:build": "vite build && electron-builder --win --x64",
-    "release": "npm run electron:build && node scripts/publish-release.js",
+    "release": "npm test && npm run electron:build && node scripts/publish-release.js",
     "shots": "node scripts/run-electron.js scripts/screenshot.cjs",
-    "icons": "node scripts/run-electron.js scripts/make-icons.cjs"
+    "icons": "node scripts/run-electron.js scripts/make-icons.cjs",
+    "lint": "eslint ."
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.110.7",
     "electron-updater": "^6.8.9"
   },
   "devDependencies": {
-    "electron": "^44.7.0",
+    "electron": "^44.11.6",
     "electron-builder": "^26.15.3",
+    "eslint": "^9.39.5",
+    "globals": "^17.14.0",
     "vite": "^8.1.1",
     "vite-plugin-pwa": "^1.3.0"
   },

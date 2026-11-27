@@ -1,6 +1,7 @@
 // App state + the selectors every view shares.
 import { today, addDays } from './dates.js'
 import { DEPTS, deptRank, STEPS } from '../lib/depts.js'
+import { isSheet, isRdLine, isOpen, startOf, onDay, pvLots as sharedPvLots, searchTasks as sharedSearch } from '../lib/rd.js'
 
 const PREFS_KEY = 'wl_prefs'
 const CACHE_KEY = 'wl_cache'
@@ -38,7 +39,7 @@ export const state = {
   syncing: false,
   loginOpen: null,             // desktop: starts with Windows? (null = not applicable)
   loaded: false,
-  view: 'today',               // today | week | month | lots | summary | settings | search
+  view: 'month',               // week | month | lots | summary | settings | search (set from prefs at load)
   cursor: today(),             // anchor date for week/month
   sumCursor: today(),          // anchor date for the R&D Summary (month or year)
   selected: today(),           // selected day in month view
@@ -64,16 +65,11 @@ export function restoreCache() {
 }
 export const clearCache = () => { try { localStorage.removeItem(CACHE_KEY) } catch {} }
 
-// ── Task predicates ──
-export const isSheet = t => t.source === 'sheet'
+// ── Task predicates (the shared ones live in lib/rd.js) ──
+export { isSheet, isRdLine, isOpen, startOf, onDay }
 export const isProduction = t => isSheet(t) && t.type !== 'pv_lot'
 // "Mine" = anything with a status worth tracking: your own tasks + PV lots.
 export const isTracked = t => !isProduction(t)
-// Runs on the sheet's 'RD' machine line — production, but R&D's business.
-export const isRdLine = t => isSheet(t) && (t.sheet_path || '').includes('R&D line')
-export const isOpen = t => t.status === 'pending' || t.status === 'in_progress'
-export const startOf = t => t.start_date && t.due_date && t.start_date < t.due_date ? t.start_date : t.due_date
-export const onDay = (t, d) => !!t.due_date && startOf(t) <= d && d <= t.due_date
 export const isOverdue = t => isTracked(t) && isOpen(t) && !!t.due_date && t.due_date < today()
 
 export function visible(t) {

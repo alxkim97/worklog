@@ -104,6 +104,18 @@ function build() {
 }
 
 let tasks = build()
+// Two plan changes, so the change rings show in demo screenshots.
+try {
+  if (!localStorage.getItem('wl_plan_changes')) {
+    const find = (name, step) => tasks.find(x => x.product_name === name && x.step === step)
+    const a = find('Machto Gel PET 240mL PV1', 'Tab'), b = find('Polycin ointment 10 g PV2', 'Bottle')
+    const at = now()
+    const log = []
+    if (a) log.push({ kind: 'moved', name: 'Machto Gel PET 240mL', step: 'Tab', lot: a.lot_number, pv: true, from: addDays(a.due_date, -1), to: a.due_date, id: a.id, at })
+    if (b) log.push({ kind: 'added', name: 'Polycin ointment 10 g', step: 'Bottle', lot: b.lot_number, pv: true, to: b.due_date, id: b.id, at })
+    localStorage.setItem('wl_plan_changes', JSON.stringify(log))
+  }
+} catch {}
 let notes = [
   { id: id(), note_date: today(), content: 'QA audit on the floor 2–4pm — keep the lab tidy', category: 'plan', created_at: now() },
   { id: id(), note_date: addDays(today(), 3), content: 'Public holiday next Monday?', category: 'plan', created_at: now() },
@@ -118,7 +130,6 @@ export const checklistColumnReady = () => true
 export const getSession = async () => session
 export const onAuthChange = () => {}
 export const signIn = async () => {}
-export const signUp = async () => ({ session })
 export const signOut = async () => location.reload()
 export const isMember = async () => true
 // same window as the real fetch: 120 days back, undated, and anything open

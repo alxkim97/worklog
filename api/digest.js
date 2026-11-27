@@ -24,6 +24,30 @@ async function setting(supa, key) {
   return data?.value || {}
 }
 
+// Claims today's send in one database step, so the PC and the cron (or two
+// PCs) can never both send: only the caller whose write changes 'digest_sent'
+// to today goes ahead. Returns a function that undoes the claim, or null when
+// someone else already has today.
+async function claimDay(supa, today, by) {
+  const value = { day: today, at: new Date().toISOString(), by }
+  const stamp = { value, updated_at: value.at }
+  const { data: moved, error } = await supa.from('worklog_settings').update(stamp)
+    .eq('key', 'digest_sent').or(`value->>day.is.null,value->>day.neq.${today}`).select('value')
+  if (error) throw error
+  let prev = null
+  if (!moved.length) {
+    // first ever send: no row yet (a conflict means another caller made it just now)
+    const { data: made, error: e2 } = await supa.from('worklog_settings')
+      .upsert({ key: 'digest_sent', ...stamp }, { onConflict: 'key', ignoreDuplicates: true }).select('key')
+    if (e2) throw e2
+    if (!made.length) return null
+  } else prev = { day: null }
+  return async () => {
+    await supa.from('worklog_settings').update({ value: prev || {}, updated_at: new Date().toISOString() })
+      .eq('key', 'digest_sent').eq('value->>day', today)
+  }
+}
+
 async function rdTasks(supa, today) {
   const out = []
   for (let start = 0; ; start += 1000) {
@@ -50,22 +74,27 @@ export default async function handler(req, res) {
     const today = bangkokToday()
 
     const prefs = await setting(supa, 'digest')
-    const sent = await setting(supa, 'digest_sent')
+    let release = null
     if (mode === 'auto') {
       // Without the settings table the server can't tell whether the PC
       // already sent today, so the cron stays quiet rather than double up.
       if (cron && prefs.missing) { res.status(200).json({ sent: false, reason: 'settings table missing (SETUP.md part F)' }); return }
       if (prefs.daily === false) { res.status(200).json({ sent: false, reason: 'daily digest is off' }); return }
-      if (sent.day === today) { res.status(200).json({ sent: false, reason: 'already sent today' }); return }
+      if (!prefs.missing) {
+        release = await claimDay(supa, today, cron ? 'cron' : 'app')
+        if (!release) { res.status(200).json({ sent: false, reason: 'already sent today' }); return }
+      }
     }
 
-    const m = buildDigest(await rdTasks(supa, today), today, { weekend: mode === 'test' || prefs.weekend !== false })
-    if (!m) { res.status(200).json({ sent: false, reason: 'weekend message is off' }); return }
-    await pushLine([flexMessage(m, { link: await viewUrl(supa) })])
-    if (mode === 'auto' && !prefs.missing) {
-      await supa.from('worklog_settings').upsert({ key: 'digest_sent', value: { day: today, at: new Date().toISOString(), by: cron ? 'cron' : 'app' }, updated_at: new Date().toISOString() })
+    try {
+      const m = buildDigest(await rdTasks(supa, today), today, { weekend: mode === 'test' || prefs.weekend !== false })
+      if (!m) { res.status(200).json({ sent: false, reason: 'weekend message is off' }); return }
+      await pushLine([flexMessage(m, { link: await viewUrl(supa) })])
+      res.status(200).json({ sent: true, day: today, title: m.title })
+    } catch (e) {
+      await release?.() // not sent: let the next caller (the cron fallback) try again
+      throw e
     }
-    res.status(200).json({ sent: true, day: today, title: m.title })
   } catch (e) {
     res.status(e.status || 500).json({ error: String(e.message || e) })
   }

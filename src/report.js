@@ -6,10 +6,10 @@ import { state, isTracked, isOpen, isRdLine, startOf } from './store.js'
 import { summarize } from './summary.js'
 import { tasksFor, rangeLabel } from './views/summary.js'
 import { today, addDays, weekStart, monthStart, addMonths, shortDate, weekday } from './dates.js'
-import { openModal, toast, esc, icon } from './ui.js'
+import { openModal, toast, icon } from './ui.js'
+import { nameOf } from '../lib/rd.js'
 
 const dd = d => `${weekday(d)} ${shortDate(d)}`
-const nameOf = t => (t.source === 'sheet' ? (t.product_name || t.title) : t.title).replace(/^[^A-Za-z0-9]+/, '').trim()
 
 export async function buildReport(from, to) {
   const tasks = await tasksFor(from, to)

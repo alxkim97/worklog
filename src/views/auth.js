@@ -1,4 +1,4 @@
-import { signIn, signUp, signOut } from '../data.js'
+import { signIn, signOut } from '../data.js'
 import { esc } from '../ui.js'
 
 const shell = inner => `
@@ -9,30 +9,25 @@ const shell = inner => `
     </div>
   </div>`
 
+// Sign in only. WorkLog is members-only: new accounts are made in Supabase
+// (Authentication → Users → Add user), not here (SETUP.md part C).
 export function renderAuth(root) {
-  let mode = 'in'
   const draw = (msg = '') => {
     root.innerHTML = shell(`
       <p class="auth-sub">Your R&amp;D plan, on top of the production schedule.</p>
       <form class="auth-form">
         <label>Email<input name="email" type="email" autocomplete="email" required></label>
-        <label>Password<input name="password" type="password" autocomplete="${mode === 'in' ? 'current-password' : 'new-password'}" minlength="6" required></label>
+        <label>Password<input name="password" type="password" autocomplete="current-password" minlength="6" required></label>
         ${msg ? `<p class="auth-msg">${esc(msg)}</p>` : ''}
-        <button class="btn primary block" type="submit">${mode === 'in' ? 'Sign in' : 'Create account'}</button>
-      </form>
-      <button class="link" data-toggle>${mode === 'in' ? 'First time here? Create an account' : 'Have an account? Sign in'}</button>`)
-    root.querySelector('[data-toggle]').onclick = () => { mode = mode === 'in' ? 'up' : 'in'; draw() }
+        <button class="btn primary block" type="submit">Sign in</button>
+      </form>`)
     root.querySelector('form').onsubmit = async e => {
       e.preventDefault()
       const f = new FormData(e.target)
       const btn = e.target.querySelector('button[type=submit]')
       btn.disabled = true
       try {
-        if (mode === 'in') await signIn(f.get('email'), f.get('password'))
-        else {
-          const r = await signUp(f.get('email'), f.get('password'))
-          if (!r.session) { mode = 'in'; draw('Check your email to confirm the account, then sign in.'); return }
-        }
+        await signIn(f.get('email'), f.get('password'))
       } catch (err) { draw(err.message || 'Something went wrong'); }
     }
   }

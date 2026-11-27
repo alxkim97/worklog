@@ -52,7 +52,7 @@ export function upcomingReminders(days = 14) {
 export function whenLabel(at) {
   const day = toStr(at)
   const time = at.toTimeString().slice(0, 5)
-  if (day < today()) return `Sent ${relDay(day) === 'Yesterday' ? 'yesterday' : shortDate(day)}`
+  if (day < today()) return `Sent ${day === addDays(today(), -1) ? 'yesterday' : shortDate(day)}`
   return `${relDay(day)} ${time}`
 }
 

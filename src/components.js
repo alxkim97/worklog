@@ -2,7 +2,7 @@
 // attributes and one delegated click handler in app.js.
 import { esc, icon } from './ui.js'
 import { DEPT_BY_KEY } from '../lib/depts.js'
-import { relDay, shortDate } from './dates.js'
+import { relDay, relHint, shortDate } from './dates.js'
 import { isOverdue, isSheet, isRdLine, groupByDept } from './store.js'
 import { reminderFor, remindLabel } from './reminders.js'
 import { checklistProgress } from './checklists.js'
@@ -21,7 +21,6 @@ export const TYPES = [
 export const TYPE_BY_KEY = Object.fromEntries(TYPES.map(t => [t.key, t]))
 export const STATUSES = [
   { key: 'pending', label: 'To do' },
-  { key: 'in_progress', label: 'Doing' },
   { key: 'done', label: 'Done' },
   { key: 'deferred', label: 'Later' },
 ]
@@ -35,10 +34,15 @@ export const PRIORITIES = [
 export const deptColor = key => (DEPT_BY_KEY[key] || DEPT_BY_KEY.other).color
 export const deptLabel = key => (DEPT_BY_KEY[key] || DEPT_BY_KEY.other).label
 
-// Status circle: tap cycles To do → Doing → Done.
+// "Doing" is gone from the app: a row stored as in_progress (a reopened past
+// plan step) simply reads as To do.
+export const statusLabel = s => ({ pending: 'To do', in_progress: 'To do', done: 'Done', deferred: 'Later' }[s] || s)
+export const formStatus = s => (s === 'in_progress' ? 'pending' : s)
+
+// Status circle: one tap = done, another tap = back to do.
 export function statusButton(t) {
-  const label = { pending: 'Start', in_progress: 'Mark done', done: 'Reopen', deferred: 'Reopen' }[t.status]
-  return `<button type="button" class="check s-${t.status}" data-act="cycle" data-id="${t.id}" aria-label="${label}" title="${label}">${t.status === 'done' ? icon('check', 14) : t.status === 'in_progress' ? '<span class="half"></span>' : ''}</button>`
+  const label = t.status === 'done' ? 'Reopen' : t.status === 'deferred' ? 'Reopen' : 'Mark done'
+  return `<button type="button" class="check s-${t.status === 'in_progress' ? 'pending' : t.status}" data-act="cycle" data-id="${t.id}" aria-label="${label}" title="${label}">${t.status === 'done' ? icon('check', 14) : ''}</button>`
 }
 
 // A tracked task (yours or a PV lot) as a row.
@@ -47,6 +51,7 @@ export function taskRow(t, { showDate = true } = {}) {
   const meta = []
   if (showDate && t.due_date) {
     meta.push(t.start_date && t.start_date < t.due_date ? `${shortDate(t.start_date)} → ${shortDate(t.due_date)}` : relDay(t.due_date))
+    if (relHint(t.due_date)) meta.push({ hint: relHint(t.due_date) })
   } else if (t.start_date && t.start_date < t.due_date) {
     meta.push(`until ${relDay(t.due_date)}`)
   }
@@ -66,7 +71,7 @@ export function taskRow(t, { showDate = true } = {}) {
       ${statusButton(t)}
       <div class="task-main">
         <div class="task-title">${esc(isSheet(t) ? (t.product_name || t.title) : t.title)}</div>
-        ${meta.length ? `<div class="task-meta">${meta.map(m => `<span class="mp">${esc(m)}</span>`).join(' · ')}</div>` : ''}
+        ${meta.length ? `<div class="task-meta">${meta.map(m => m.hint ? `<span class="hint">${esc(m.hint)}</span>` : `<span class="mp">${esc(m)}</span>`).join(' · ').replace(/ · (<span class="hint">)/g, ' $1')}</div>` : ''}
       </div>
       <div class="task-flags">${flags}</div>
     </div>`

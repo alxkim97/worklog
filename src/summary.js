@@ -7,11 +7,10 @@
 // count on the day they were marked done (done_at).
 // Pure functions (no state import) so they can be tested in Node.
 
-const isSheet = t => t.source === 'sheet'
-const isRdLine = t => isSheet(t) && (t.sheet_path || '').includes('R&D line')
+import { isSheet, isRdLine, nameOf as cleanName } from '../lib/rd.js'
+
 const pad = n => String(n).padStart(2, '0')
 const localDay = iso => { if (!iso) return null; const d = new Date(iso); return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}` }
-const cleanName = t => (t.product_name || t.title || '').replace(/^[^A-Za-z0-9]+/, '').trim()
 
 export const CATS = [
   { key: 'pv', label: 'PV steps', short: 'PV' },

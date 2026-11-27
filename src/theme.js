@@ -4,5 +4,5 @@ export function applyTheme(mode) {
   if (mode === 'light' || mode === 'dark') el.setAttribute('data-theme', mode)
   else el.removeAttribute('data-theme')
   const dark = mode === 'dark' || (mode !== 'light' && matchMedia('(prefers-color-scheme: dark)').matches)
-  document.querySelector('meta[name="theme-color"]')?.setAttribute('content', dark ? '#0f0e17' : '#f7f6fc')
+  document.querySelector('meta[name="theme-color"]')?.setAttribute('content', dark ? '#18191d' : '#ffffff')
 }

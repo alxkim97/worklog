@@ -12,11 +12,6 @@ export async function signIn(email, password) {
   const { error } = await supa.auth.signInWithPassword({ email, password })
   if (error) throw error
 }
-export async function signUp(email, password) {
-  const { data, error } = await supa.auth.signUp({ email, password })
-  if (error) throw error
-  return data
-}
 export const signOut = () => supa.auth.signOut()
 
 export async function isMember(userId) {

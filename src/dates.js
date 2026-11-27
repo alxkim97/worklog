@@ -49,14 +49,18 @@ export const shortDate = s => (s.slice(0, 4) === today().slice(0, 4) ? F.dm : F.
 export const monthYear = s => F.my.format(fromStr(s))
 export const longDate = s => F.long.format(fromStr(s))
 
-// "Today", "Tomorrow", "Mon", or "12 Oct" — whichever reads fastest.
-export function relDay(s) {
+// Always the real date: "Fri 27 Nov" (with the year when it isn't this year).
+export const relDay = s => `${weekday(s)} ${shortDate(s)}`
+export const dayDate = relDay
+// The small grey word that may sit beside a date — never instead of it.
+export function relHint(s) {
   const diff = daysBetween(today(), s)
-  if (diff === 0) return 'Today'
-  if (diff === 1) return 'Tomorrow'
-  if (diff === -1) return 'Yesterday'
-  if (diff > 1 && diff < 7) return weekday(s)
-  return shortDate(s)
+  if (diff === 0) return 'today'
+  if (diff === 1) return 'tomorrow'
+  if (diff === -1) return 'yesterday'
+  if (diff < -1) return `${-diff} days ago`
+  if (diff < 7) return `in ${diff} days`
+  return ''
 }
 
 export function timeAgo(iso) {

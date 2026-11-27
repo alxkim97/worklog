@@ -1,5 +1,5 @@
 import { openModal, confirmBox, toast, esc, icon } from './ui.js'
-import { TYPES, STATUSES, PRIORITIES, deptColor, deptLabel } from './components.js'
+import { TYPES, STATUSES, PRIORITIES, deptColor, deptLabel, formStatus } from './components.js'
 import { DEPTS } from '../lib/depts.js'
 import { state, isSheet, isProduction } from './store.js'
 import { createTask, updateTask, deleteTask, remindColumnReady, checklistColumnReady } from './data.js'
@@ -132,7 +132,7 @@ export function openEditor({ id, date } = {}, rerender) {
           ${multi ? `<label class="field">Until<input type="date" name="due_date" value="${v.due_date || ''}"></label>`
             : `<button type="button" class="link span-btn" data-span>+ Spans several days</button>`}
         </div>
-        ${t ? `<div class="field"><span class="field-label">Status</span>${chips('status', STATUSES, v.status)}</div>` : ''}
+        ${t ? `<div class="field"><span class="field-label">Status</span>${chips('status', STATUSES, formStatus(v.status))}</div>` : ''}
         <div class="remind-slot">${remindField(v)}</div>
         <details class="more-opts" ${t || !quickAdd ? 'open' : ''}>
           <summary>More options</summary>
@@ -191,7 +191,7 @@ export function openEditor({ id, date } = {}, rerender) {
       lot_number: String(f.get('lot_number') || '').trim() || null,
       remind_days: remindValue(f, f.get('type')),
     }
-    if (t) patch.status = f.get('status')
+    if (t) patch.status = keepOpen(t, f.get('status'))
     const btn = form.querySelector('[type=submit]')
     btn.disabled = true
     try {
@@ -239,7 +239,7 @@ function openSheetTask(t, rerender) {
           ${t.sheet_path ? `<div><dt>Sheet row</dt><dd>${esc(t.sheet_path)}</dd></div>` : ''}
         </dl>
         <p class="muted small">${icon('factory', 14)} From the production plan. Dates and names update from the sheet; your status and notes are kept.</p>
-        ${tracked ? `<div class="field"><span class="field-label">Status</span>${chips('status', STATUSES, t.status)}</div>` : ''}
+        ${tracked ? `<div class="field"><span class="field-label">Status</span>${chips('status', STATUSES, formStatus(t.status))}</div>` : ''}
         ${checklistField(t)}
         ${remindField(t)}
         <label class="field">Your notes<textarea name="notes" rows="3" placeholder="Observations, sample IDs…">${esc(t.notes || '')}</textarea></label>
@@ -261,7 +261,7 @@ function openSheetTask(t, rerender) {
     e.preventDefault()
     const f = new FormData(form)
     const patch = { notes: String(f.get('notes') || '').trim() || null }
-    if (tracked) patch.status = f.get('status')
+    if (tracked) patch.status = keepOpen(t, f.get('status'))
     if (remindColumnReady()) patch.remind_days = remindValue(f, t.type)
     const cur = state.tasks.find(x => x.id === t.id) || t // checklist ticks may have replaced the row
     const prev = snapshot(cur, patch)
@@ -272,3 +272,7 @@ function openSheetTask(t, rerender) {
     } catch (err) { toast(err.message || 'Could not save') }
   }
 }
+
+// "To do" chosen on a row stored as in_progress (a reopened past plan step):
+// keep in_progress, or the step would read as auto-done again.
+function keepOpen(t, chosen) { return chosen === 'pending' && t.status === 'in_progress' ? 'in_progress' : chosen }
