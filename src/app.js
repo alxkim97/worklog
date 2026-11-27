@@ -601,19 +601,19 @@ function decorateFocus() {
   for (const id of g.ids) content.querySelectorAll(`[data-id="${id}"], [data-ghost="${id}"]`).forEach(e => e.classList.add('chg-hot'))
 }
 // A copy of each moved step flies from its ghost (old day) to the real block
-// (new day), one after another, then the ring pulses. Reduced motion: the
-// pair just lights up together.
+// (new day), one after another, then the ring pulses. It plays even with
+// reduced motion on (Alex's call: short, and only on a click). A step with
+// no ghost on screen just pulses.
 async function slideLot(g) {
   const content = root.querySelector('.shell.desktop .content')
   if (!content) return
   const real = id => content.querySelector(`.ev[data-id="${id}"], .wcard[data-id="${id}"]`)
   const pulse = el => { el.classList.remove('chg-pulse'); void el.offsetWidth; el.classList.add('chg-pulse') }
-  const reduce = matchMedia('(prefers-reduced-motion: reduce)').matches
   const moved = g.items.filter(c => c.kind === 'moved' && c.from).sort((a, b) => a.from.localeCompare(b.from))
   for (const c of moved) {
     const to = real(c.id), from = content.querySelector(`[data-ghost="${c.id}"]`)
     if (!to) continue
-    if (reduce || !from) { pulse(to); if (from) pulse(from); continue }
+    if (!from) { pulse(to); continue }
     const a = from.getBoundingClientRect(), z = to.getBoundingClientRect()
     const fly = to.cloneNode(true)
     fly.querySelector('.mk')?.remove()

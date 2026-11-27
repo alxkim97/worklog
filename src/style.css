@@ -1278,6 +1278,7 @@ img.logo, .logo { box-shadow: none; }
 }
 .chg-pulse { animation: chg-pulse .9s ease-out 2; }
 @media (prefers-reduced-motion: reduce) {
-  .chg-pulse { animation: none; outline: 3px solid var(--warn); outline-offset: 2px; }
+  /* plays anyway: beats the global "animation: none !important" above */
+  .chg-pulse { animation: chg-pulse .9s ease-out 2 !important; }
 }
 @media print { .chg-strip, .sb-handle { display: none !important; } .ghost { display: none !important; } }
